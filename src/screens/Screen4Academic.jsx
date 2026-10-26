@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../store.jsx";
 import { Header } from "../components/Header.jsx";
 import { Stepper } from "../components/Stepper.jsx";
+import { createError, formatError } from "../validation.js";
 import {
   GraduationCap,
   Chevron,
@@ -59,21 +60,21 @@ export function Screen4Academic() {
 
   const validateSubjectMark = (val, maxVal, nameKey) => {
     if (val === "" || val === null || val === undefined) {
-      return t(`val.${nameKey}Required`);
+      return createError(`val.${nameKey}Required`);
     }
     const num = parseFloat(val);
     const maxNum = parseFloat(maxVal);
-    if (isNaN(num)) return t("val.marksInvalid");
-    if (num < 0) return t("val.marksNegative");
-    if (num > maxNum) return t("val.marksExceed", { max: maxNum });
+    if (isNaN(num)) return createError("val.marksInvalid");
+    if (num < 0) return createError("val.marksNegative");
+    if (num > maxNum) return createError("val.marksExceed", { max: maxNum });
     return null;
   };
 
   const validate = () => {
     const errs = {};
-    if (!board) errs.board = t("val.boardRequired");
-    if (!passingYear) errs.passingYear = t("val.passingYearRequired");
-    if (!schoolName.trim()) errs.schoolName = t("val.schoolNameRequired");
+    if (!board) errs.board = createError("val.boardRequired");
+    if (!passingYear) errs.passingYear = createError("val.passingYearRequired");
+    if (!schoolName.trim()) errs.schoolName = createError("val.schoolNameRequired");
 
     const mErr = validateSubjectMark(maths, maxMaths, "maths");
     if (mErr) errs.maths = mErr;
@@ -84,7 +85,7 @@ export function Screen4Academic() {
     const cErr = validateSubjectMark(chemistry, maxChemistry, "chemistry");
     if (cErr) errs.chemistry = cErr;
 
-    if (!declared) errs.declared = t("val.declarationRequired");
+    if (!declared) errs.declared = createError("val.declarationRequired");
 
     return errs;
   };
@@ -202,7 +203,7 @@ export function Screen4Academic() {
                     </select>
                     <Chevron size={14} color="#64748b" />
                   </div>
-                  {errors.board && <div className="field-error-msg">{errors.board}</div>}
+                  {errors.board && <div className="field-error-msg" role="alert">{formatError(errors.board, t)}</div>}
                 </div>
 
                 {/* Year of Passing */}
@@ -231,7 +232,7 @@ export function Screen4Academic() {
                     </select>
                     <Chevron size={14} color="#64748b" />
                   </div>
-                  {errors.passingYear && <div className="field-error-msg">{errors.passingYear}</div>}
+                  {errors.passingYear && <div className="field-error-msg" role="alert">{formatError(errors.passingYear, t)}</div>}
                 </div>
               </div>
 
@@ -253,7 +254,7 @@ export function Screen4Academic() {
                     }}
                   />
                 </div>
-                {errors.schoolName && <div className="field-error-msg">{errors.schoolName}</div>}
+                {errors.schoolName && <div className="field-error-msg" role="alert">{formatError(errors.schoolName, t)}</div>}
               </div>
 
               {/* Have you registered for TNEA 2026? */}
@@ -321,7 +322,7 @@ export function Screen4Academic() {
                         if (errors.maths) setErrors((p) => ({ ...p, maths: null }));
                       }}
                     />
-                    {errors.maths && <div className="field-error-msg">{errors.maths}</div>}
+                    {errors.maths && <div className="field-error-msg" role="alert">{formatError(errors.maths, t)}</div>}
                   </div>
                   <div className="col-max">
                     <input
@@ -349,7 +350,7 @@ export function Screen4Academic() {
                         if (errors.physics) setErrors((p) => ({ ...p, physics: null }));
                       }}
                     />
-                    {errors.physics && <div className="field-error-msg">{errors.physics}</div>}
+                    {errors.physics && <div className="field-error-msg" role="alert">{formatError(errors.physics, t)}</div>}
                   </div>
                   <div className="col-max">
                     <input
@@ -377,7 +378,7 @@ export function Screen4Academic() {
                         if (errors.chemistry) setErrors((p) => ({ ...p, chemistry: null }));
                       }}
                     />
-                    {errors.chemistry && <div className="field-error-msg">{errors.chemistry}</div>}
+                    {errors.chemistry && <div className="field-error-msg" role="alert">{formatError(errors.chemistry, t)}</div>}
                   </div>
                   <div className="col-max">
                     <input
@@ -520,7 +521,7 @@ export function Screen4Academic() {
                   {t("academic.declarationText")} <span className="req">*</span>
                 </span>
               </label>
-              {errors.declared && <div className="field-error-msg">{errors.declared}</div>}
+              {errors.declared && <div className="field-error-msg" role="alert">{formatError(errors.declared, t)}</div>}
             </div>
 
             {/* Form Footer Actions */}

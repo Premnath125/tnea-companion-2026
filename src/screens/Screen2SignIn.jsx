@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../store.jsx";
 import { Header } from "../components/Header.jsx";
+import { createError, formatError } from "../validation.js";
 import {
   MailIcon,
   LockIcon,
@@ -36,32 +37,32 @@ export function Screen2SignIn() {
     const errs = {};
     if (tab === "signup") {
       if (!fullName.trim()) {
-        errs.fullName = t("val.fullNameRequired");
+        errs.fullName = createError("val.fullNameRequired");
       } else if (fullName.trim().length < 2) {
-        errs.fullName = t("val.fullNameMin");
+        errs.fullName = createError("val.fullNameMin");
       }
     }
 
     if (!emailOrReg.trim()) {
-      errs.emailOrReg = t("val.emailRequired");
+      errs.emailOrReg = createError("val.emailRequired");
     } else if (
       tab === "signup" &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrReg.trim())
     ) {
-      errs.emailOrReg = t("val.emailInvalid");
+      errs.emailOrReg = createError("val.emailInvalid");
     }
 
     if (!password) {
-      errs.password = t("val.passwordRequired");
+      errs.password = createError("val.passwordRequired");
     } else if (password.length < 6) {
-      errs.password = t("val.passwordMin");
+      errs.password = createError("val.passwordMin");
     }
 
     if (tab === "signup") {
       if (!confirmPassword) {
-        errs.confirmPassword = t("val.required");
+        errs.confirmPassword = createError("val.required");
       } else if (confirmPassword !== password) {
-        errs.confirmPassword = t("val.passwordMismatch");
+        errs.confirmPassword = createError("val.passwordMismatch");
       }
     }
 
@@ -254,7 +255,7 @@ export function Screen2SignIn() {
                     />
                   </div>
                   {errors.fullName && (
-                    <div className="field-error-msg" role="alert">{errors.fullName}</div>
+                    <div className="field-error-msg" role="alert">{formatError(errors.fullName, t)}</div>
                   )}
                 </div>
               )}
@@ -284,7 +285,7 @@ export function Screen2SignIn() {
                   />
                 </div>
                 {errors.emailOrReg && (
-                  <div className="field-error-msg" role="alert">{errors.emailOrReg}</div>
+                  <div className="field-error-msg" role="alert">{formatError(errors.emailOrReg, t)}</div>
                 )}
               </div>
 
@@ -321,7 +322,7 @@ export function Screen2SignIn() {
                   </button>
                 </div>
                 {errors.password && (
-                  <div className="field-error-msg" role="alert">{errors.password}</div>
+                  <div className="field-error-msg" role="alert">{formatError(errors.password, t)}</div>
                 )}
               </div>
 
@@ -358,7 +359,7 @@ export function Screen2SignIn() {
                     </button>
                   </div>
                   {errors.confirmPassword && (
-                    <div className="field-error-msg" role="alert">{errors.confirmPassword}</div>
+                    <div className="field-error-msg" role="alert">{formatError(errors.confirmPassword, t)}</div>
                   )}
                 </div>
               )}

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../store.jsx";
 import { Header } from "../components/Header.jsx";
 import { Stepper } from "../components/Stepper.jsx";
+import { createError, formatError } from "../validation.js";
 import {
   UserIcon,
   CalendarIcon,
@@ -36,36 +37,36 @@ export function Screen3Personal() {
   const validate = () => {
     const errs = {};
     if (!fullName.trim()) {
-      errs.fullName = t("val.fullNameRequired");
+      errs.fullName = createError("val.fullNameRequired");
     }
     if (!dob) {
-      errs.dob = t("val.dobRequired");
+      errs.dob = createError("val.dobRequired");
     }
     if (!gender) {
-      errs.gender = t("val.genderRequired");
+      errs.gender = createError("val.genderRequired");
     }
     if (!community) {
-      errs.community = t("val.communityRequired");
+      errs.community = createError("val.communityRequired");
     }
     if (!mobile.trim()) {
-      errs.mobile = t("val.mobileRequired");
+      errs.mobile = createError("val.mobileRequired");
     } else if (!/^\d{10}$/.test(mobile.replace(/\D/g, ""))) {
-      errs.mobile = t("val.mobileInvalid");
+      errs.mobile = createError("val.mobileInvalid");
     }
     if (!state) {
-      errs.state = t("val.stateRequired");
+      errs.state = createError("val.stateRequired");
     }
     if (!district) {
-      errs.district = t("val.districtRequired");
+      errs.district = createError("val.districtRequired");
     }
     if (!nativePlace.trim()) {
-      errs.nativePlace = t("val.nativePlaceRequired");
+      errs.nativePlace = createError("val.nativePlaceRequired");
     }
     if (!address.trim()) {
-      errs.address = t("val.addressRequired");
+      errs.address = createError("val.addressRequired");
     }
     if (!declared) {
-      errs.declared = t("val.declarationRequired");
+      errs.declared = createError("val.declarationRequired");
     }
     return errs;
   };
@@ -176,7 +177,7 @@ export function Screen3Personal() {
                       }}
                     />
                   </div>
-                  {errors.fullName && <div className="field-error-msg">{errors.fullName}</div>}
+                  {errors.fullName && <div className="field-error-msg" role="alert">{formatError(errors.fullName, t)}</div>}
                 </div>
 
                 {/* Date of Birth */}
@@ -199,7 +200,7 @@ export function Screen3Personal() {
                       <CalendarIcon size={16} color="#64748b" />
                     </span>
                   </div>
-                  {errors.dob && <div className="field-error-msg">{errors.dob}</div>}
+                  {errors.dob && <div className="field-error-msg" role="alert">{formatError(errors.dob, t)}</div>}
                 </div>
               </div>
 
@@ -230,7 +231,7 @@ export function Screen3Personal() {
                     </select>
                     <Chevron size={14} color="#64748b" />
                   </div>
-                  {errors.gender && <div className="field-error-msg">{errors.gender}</div>}
+                  {errors.gender && <div className="field-error-msg" role="alert">{formatError(errors.gender, t)}</div>}
                 </div>
 
                 {/* Community */}
@@ -259,7 +260,7 @@ export function Screen3Personal() {
                     </select>
                     <Chevron size={14} color="#64748b" />
                   </div>
-                  {errors.community && <div className="field-error-msg">{errors.community}</div>}
+                  {errors.community && <div className="field-error-msg" role="alert">{formatError(errors.community, t)}</div>}
                 </div>
               </div>
 
@@ -286,7 +287,7 @@ export function Screen3Personal() {
                     }}
                   />
                 </div>
-                {errors.mobile && <div className="field-error-msg">{errors.mobile}</div>}
+                {errors.mobile && <div className="field-error-msg" role="alert">{formatError(errors.mobile, t)}</div>}
               </div>
             </div>
 
@@ -324,7 +325,7 @@ export function Screen3Personal() {
                     </select>
                     <Chevron size={14} color="#64748b" />
                   </div>
-                  {errors.state && <div className="field-error-msg">{errors.state}</div>}
+                  {errors.state && <div className="field-error-msg" role="alert">{formatError(errors.state, t)}</div>}
                 </div>
 
                 {/* District */}
@@ -353,7 +354,7 @@ export function Screen3Personal() {
                     </select>
                     <Chevron size={14} color="#64748b" />
                   </div>
-                  {errors.district && <div className="field-error-msg">{errors.district}</div>}
+                  {errors.district && <div className="field-error-msg" role="alert">{formatError(errors.district, t)}</div>}
                 </div>
               </div>
 
@@ -379,7 +380,7 @@ export function Screen3Personal() {
                       }}
                     />
                   </div>
-                  {errors.nativePlace && <div className="field-error-msg">{errors.nativePlace}</div>}
+                  {errors.nativePlace && <div className="field-error-msg" role="alert">{formatError(errors.nativePlace, t)}</div>}
                 </div>
 
                 {/* Full Address */}
@@ -403,7 +404,7 @@ export function Screen3Personal() {
                       }}
                     />
                   </div>
-                  {errors.address && <div className="field-error-msg">{errors.address}</div>}
+                  {errors.address && <div className="field-error-msg" role="alert">{formatError(errors.address, t)}</div>}
                 </div>
               </div>
             </div>
@@ -427,7 +428,7 @@ export function Screen3Personal() {
                   {t("personal.declarationText")} <span className="req">*</span>
                 </span>
               </label>
-              {errors.declared && <div className="field-error-msg">{errors.declared}</div>}
+              {errors.declared && <div className="field-error-msg" role="alert">{formatError(errors.declared, t)}</div>}
             </div>
 
             {/* Action Buttons */}
