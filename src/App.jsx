@@ -1,18 +1,36 @@
-import React, { useState } from "react";
-import { Welcome, SignIn, Personal, Academic, Summary } from "./screens.jsx";
+import React from "react";
+import { AppProvider, useApp } from "./store.jsx";
+import { Screen1Welcome } from "./screens/Screen1Welcome.jsx";
+import { Screen2SignIn } from "./screens/Screen2SignIn.jsx";
+import { Screen3Personal } from "./screens/Screen3Personal.jsx";
+import { Screen4Academic } from "./screens/Screen4Academic.jsx";
+import { Screen5Dashboard } from "./screens/Screen5Dashboard.jsx";
+
+function AppContent() {
+  const { step } = useApp();
+
+  switch (step) {
+    case 0:
+      return <Screen1Welcome />;
+    case 1:
+      return <Screen2SignIn />;
+    case 2:
+      return <Screen3Personal />;
+    case 3:
+      return <Screen4Academic />;
+    case 4:
+      return <Screen5Dashboard />;
+    default:
+      return <Screen1Welcome />;
+  }
+}
 
 export default function App() {
-  const [step, setStep] = useState(0);
-  const go = (n) => { setStep(n); window.scrollTo(0, 0); };
-  const next = () => go(Math.min(step + 1, 4));
-  const back = () => go(Math.max(step - 1, 0));
-
-  const screens = [
-    <Welcome onNext={next} />,
-    <SignIn onNext={next} />,
-    <Personal onBack={back} onNext={next} />,
-    <Academic onBack={back} onNext={next} />,
-    <Summary onBack={back} onNext={() => alert("Main dashboard – coming next")} goTo={go} />,
-  ];
-  return <div className="app">{screens[step]}</div>;
+  return (
+    <AppProvider>
+      <div className="app-root">
+        <AppContent />
+      </div>
+    </AppProvider>
+  );
 }
