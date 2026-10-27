@@ -49,7 +49,6 @@ export function Screen4Academic() {
   const [studiedGovtSchool, setStudiedGovtSchool] = useState(user.studiedGovtSchool || "no");
   const [firstGraduate, setFirstGraduate] = useState(user.firstGraduate || "no");
   const [specialReservations, setSpecialReservations] = useState(user.specialReservations || []);
-  const [declared, setDeclared] = useState(user.academicDeclared ?? false);
 
   const [errors, setErrors] = useState({});
   // Cutoff and eligibility confirmation only shown after valid submission
@@ -94,8 +93,6 @@ export function Screen4Academic() {
     const cErr = validateSubjectMark(chemistry, maxChemistry, "chemistry");
     if (cErr) errs.chemistry = cErr;
 
-    if (!declared) errs.declared = createError("val.declarationRequired");
-
     return errs;
   };
 
@@ -124,7 +121,6 @@ export function Screen4Academic() {
         studiedGovtSchool,
         firstGraduate,
         specialReservations,
-        academicDeclared: declared,
         academicSubmitted: true,
         isProfileComplete: true,
       });
@@ -152,7 +148,6 @@ export function Screen4Academic() {
       studiedGovtSchool,
       firstGraduate,
       specialReservations,
-      academicDeclared: declared,
     });
     setStep(2);
   };
@@ -519,24 +514,6 @@ export function Screen4Academic() {
                   </label>
                 </div>
               </div>
-            </div>
-
-            {/* Declaration Card */}
-            <div className="declaration-card-box">
-              <label className="declaration-check-label">
-                <input
-                  type="checkbox"
-                  checked={declared}
-                  onChange={(e) => {
-                    setDeclared(e.target.checked);
-                    if (errors.declared) setErrors((p) => ({ ...p, declared: null }));
-                  }}
-                />
-                <span className="declaration-text">
-                  {t("academic.declarationText")} <span className="req">*</span>
-                </span>
-              </label>
-              {errors.declared && <div className="field-error-msg" role="alert">{formatError(errors.declared, t)}</div>}
             </div>
 
             {/* Form Footer Actions */}

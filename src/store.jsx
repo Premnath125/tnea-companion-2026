@@ -3,6 +3,14 @@ import { getTranslation } from "./i18n.js";
 import { calculateTneaCutoff, calculateAveragePercentage, checkMinimumEligibility } from "./cutoff.js";
 import { SAMPLE_COLLEGES, INITIAL_CHECKLIST } from "./data.js";
 import { hashPassword } from "./auth.js";
+import {
+  supabase,
+  isSupabaseConfigured,
+  fetchUserDataFromSupabase,
+  syncProfileToSupabase,
+  syncAcademicToSupabase,
+  syncPreferencesToSupabase,
+} from "./supabase.js";
 
 const AppContext = createContext(null);
 
@@ -11,6 +19,7 @@ const SESSION_STORAGE_KEY = "tnea_current_session_v2";
 const LANG_STORAGE_KEY = "tnea_lang_pref_2026";
 
 export const emptyUserProfile = {
+  id: null,
   fullName: "",
   email: "",
   registeredTnea: false,
@@ -53,7 +62,6 @@ function getStoredAccounts() {
     const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch (e) {
-    console.error("Failed to read accounts from storage:", e);
     return {};
   }
 }
@@ -61,9 +69,7 @@ function getStoredAccounts() {
 function saveAccounts(accounts) {
   try {
     localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
-  } catch (e) {
-    console.error("Failed to save accounts to storage:", e);
-  }
+  } catch (e) {}
 }
 
 function getActiveSession() {
@@ -82,9 +88,7 @@ function setActiveSession(session) {
     } else {
       localStorage.removeItem(SESSION_STORAGE_KEY);
     }
-  } catch (e) {
-    console.error("Failed to update session storage:", e);
-  }
+  } catch (e) {}
 }
 
 export function AppProvider({ children }) {
@@ -97,7 +101,7 @@ export function AppProvider({ children }) {
     }
   });
 
-  // Step and user session initialization
+  // Session state initialization
   // A new or unauthenticated visitor must ALWAYS start on Screen 0 (Welcome)
   const [sessionData, setSessionData] = useState(() => {
     const session = getActiveSession();
@@ -124,7 +128,7 @@ export function AppProvider({ children }) {
       };
     }
 
-    // Unauthenticated: Screen 0 (Welcome)
+    // Unauthenticated visitor defaults to Screen 0 (Welcome)
     return {
       step: 0,
       currentUser: emptyUserProfile,
@@ -135,6 +139,113 @@ export function AppProvider({ children }) {
   });
 
   const { step, currentUser, savedColleges, choiceList, checklist } = sessionData;
+
+  // Supabase Auth Listener & Cloud Data Hydration
+  useEffect(() => {
+    if (!supabase) return;
+
+    let isMounted = true;
+
+    // Helper to hydrate state from Supabase
+    const hydrateFromSupabase = async (authUser) => {
+      if (!authUser) return;
+
+      const data = await fetchUserDataFromSupabase(authUser.id);
+      if (!isMounted) return;
+
+      const profile = data?.profile;
+      const academic = data?.academic;
+      const preferences = data?.preferences;
+
+      const isPersonalComplete = Boolean(profile?.is_personal_complete);
+      const academicSubmitted = Boolean(academic?.academic_submitted);
+      const isProfileComplete = Boolean(academic?.is_profile_complete && isPersonalComplete);
+
+      const hydratedUser = {
+        ...emptyUserProfile,
+        id: authUser.id,
+        email: authUser.email,
+        fullName: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || "",
+        dob: profile?.dob || "",
+        gender: profile?.gender || "",
+        community: profile?.community || "",
+        mobile: profile?.mobile || "",
+        state: profile?.state || "Tamil Nadu",
+        district: profile?.district || "",
+        nativePlace: profile?.native_place || "",
+        address: profile?.address || "",
+        isPersonalComplete,
+
+        // Academic details
+        board: academic?.board || "",
+        passingYear: academic?.passing_year || "2026",
+        schoolName: academic?.school_name || "",
+        hasTneaReg: academic?.has_tnea_reg || "no",
+        regNumber: academic?.reg_number || "",
+        maths: academic?.maths != null ? String(academic.maths) : "",
+        physics: academic?.physics != null ? String(academic.physics) : "",
+        chemistry: academic?.chemistry != null ? String(academic.chemistry) : "",
+        maxMaths: String(academic?.max_maths || 100),
+        maxPhysics: String(academic?.max_physics || 100),
+        maxChemistry: String(academic?.max_chemistry || 100),
+        studiedGovtSchool: academic?.studied_govt_school || "no",
+        firstGraduate: academic?.first_graduate || "no",
+        specialReservations: Array.isArray(academic?.special_reservations) ? academic.special_reservations : [],
+        academicSubmitted,
+        isProfileComplete,
+        isAuthenticated: true,
+      };
+
+      // Correct returning-user routing:
+      // If personal and academic details completed: Screen 5 (Dashboard) [step 4]
+      // If personal details complete, academic incomplete: Screen 4 (Academic) [step 3]
+      // If personal details incomplete: Screen 3 (Personal) [step 2]
+      let nextStep = 2;
+      if (isProfileComplete) {
+        nextStep = 4;
+      } else if (isPersonalComplete) {
+        nextStep = 3;
+      }
+
+      setSessionData({
+        step: nextStep,
+        currentUser: hydratedUser,
+        savedColleges: preferences?.saved_colleges || [],
+        choiceList: preferences?.choice_list || [],
+        checklist: preferences?.checklist || INITIAL_CHECKLIST,
+      });
+
+      setActiveSession({ email: authUser.email });
+    };
+
+    // 1. Initial check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && isMounted) {
+        hydrateFromSupabase(session.user);
+      }
+    });
+
+    // 2. Auth state subscription
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user && isMounted) {
+        await hydrateFromSupabase(session.user);
+      } else if (event === "SIGNED_OUT" && isMounted) {
+        setActiveSession(null);
+        setSessionData({
+          step: 0,
+          currentUser: emptyUserProfile,
+          savedColleges: [],
+          choiceList: [],
+          checklist: INITIAL_CHECKLIST,
+        });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const setLang = (newLang) => {
     setLangState(newLang);
@@ -150,9 +261,11 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Synchronize active user state with their account record in accounts storage
+  // Synchronize state with Supabase & local storage
   const syncAccount = (updatedUser, updatedSaved, updatedChoices, updatedChecklist) => {
     if (!updatedUser.email) return;
+
+    // Local account sync
     const accounts = getStoredAccounts();
     const key = updatedUser.email.toLowerCase();
     if (accounts[key]) {
@@ -164,6 +277,20 @@ export function AppProvider({ children }) {
         checklist: updatedChecklist !== undefined ? updatedChecklist : accounts[key].checklist,
       };
       saveAccounts(accounts);
+    }
+
+    // Cloud Supabase sync
+    if (supabase && updatedUser.id) {
+      syncProfileToSupabase(updatedUser.id, updatedUser.email, updatedUser);
+
+      const m = updatedUser.maths;
+      const p = updatedUser.physics;
+      const c = updatedUser.chemistry;
+      const cut = calculateTneaCutoff(m, p, c, updatedUser.maxMaths, updatedUser.maxPhysics, updatedUser.maxChemistry);
+      const avg = calculateAveragePercentage(m, p, c, updatedUser.maxMaths, updatedUser.maxPhysics, updatedUser.maxChemistry);
+
+      syncAcademicToSupabase(updatedUser.id, updatedUser, cut, avg, updatedUser.isProfileComplete);
+      syncPreferencesToSupabase(updatedUser.id, updatedSaved, updatedChoices, updatedChecklist);
     }
   };
 
@@ -209,24 +336,80 @@ export function AppProvider({ children }) {
     });
   };
 
-  // Real Credential Authentication
-  const registerUser = async (fullName, email, password) => {
-    const cleanEmail = email.trim().toLowerCase();
-    const accounts = getStoredAccounts();
+  // --- Authentication Methods ---
 
+  // 1. Send OTP for Sign Up
+  const sendSignUpOtp = async (firstName, email, password) => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: {
+              first_name: firstName.trim(),
+              full_name: firstName.trim(),
+            },
+          },
+        });
+
+        if (error) {
+          if (error.message.toLowerCase().includes("already registered")) {
+            return { success: false, errorKey: "val.accountExists" };
+          }
+          return { success: false, message: error.message };
+        }
+
+        return { success: true, user: data?.user };
+      } catch (err) {
+        return { success: false, message: err.message };
+      }
+    }
+
+    // Local / fallback mode
+    const accounts = getStoredAccounts();
     if (accounts[cleanEmail]) {
       return { success: false, errorKey: "val.accountExists" };
     }
+    return { success: true };
+  };
 
+  // 2. Verify OTP for Sign Up
+  const verifySignUpOtp = async (firstName, email, password, otpToken) => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: otpToken.trim(),
+          type: "signup",
+        });
+
+        if (error) {
+          return { success: false, errorKey: "val.otpInvalid", message: error.message };
+        }
+
+        // Account is verified in Supabase!
+        // Immediately sign out to satisfy requirement: user must sign in with their email and password
+        await supabase.auth.signOut();
+
+        return { success: true };
+      } catch (err) {
+        return { success: false, errorKey: "val.otpInvalid", message: err.message };
+      }
+    }
+
+    // Local / fallback mode
+    const accounts = getStoredAccounts();
     const passwordHash = await hashPassword(password);
     const newUser = {
       ...emptyUserProfile,
-      fullName: fullName.trim(),
+      fullName: firstName.trim(),
       email: cleanEmail,
-      isAuthenticated: true,
-      isPersonalComplete: false,
-      isProfileComplete: false,
-      academicSubmitted: false,
+      isAuthenticated: false,
     };
 
     accounts[cleanEmail] = {
@@ -241,56 +424,68 @@ export function AppProvider({ children }) {
     };
 
     saveAccounts(accounts);
-    setActiveSession({ email: cleanEmail });
-
-    setSessionData({
-      step: 2, // New user advances to Step 2 (Personal & Nativity Details)
-      currentUser: newUser,
-      savedColleges: [],
-      choiceList: [],
-      checklist: INITIAL_CHECKLIST,
-    });
-
     return { success: true };
   };
 
-  const authenticateUser = async (emailOrReg, password) => {
-    const cleanQuery = emailOrReg.trim().toLowerCase();
-    const accounts = getStoredAccounts();
+  // 3. Resend OTP
+  const resendSignUpOtp = async (email) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (supabase) {
+      try {
+        const { error } = await supabase.auth.resend({
+          type: "signup",
+          email: cleanEmail,
+        });
+        if (error) return { success: false, message: error.message };
+        return { success: true };
+      } catch (err) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true };
+  };
 
-    // Find account by email or regNumber
-    let foundKey = null;
-    for (const key of Object.keys(accounts)) {
-      const acc = accounts[key];
-      if (
-        key === cleanQuery ||
-        (acc.user && acc.user.regNumber && acc.user.regNumber.toLowerCase() === cleanQuery)
-      ) {
-        foundKey = key;
-        break;
+  // 4. Sign In with Password
+  const authenticateUser = async (email, password) => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
+        if (error) {
+          return { success: false, errorKey: "val.authInvalid", message: error.message };
+        }
+
+        return { success: true, user: data?.user };
+      } catch (err) {
+        return { success: false, errorKey: "val.authInvalid", message: err.message };
       }
     }
 
-    if (!foundKey) {
+    // Local / fallback verification
+    const accounts = getStoredAccounts();
+    const account = accounts[cleanEmail];
+    if (!account) {
       return { success: false, errorKey: "val.accountNotFound" };
     }
 
-    const account = accounts[foundKey];
     const passwordHash = await hashPassword(password);
-
     if (account.passwordHash !== passwordHash) {
       return { success: false, errorKey: "val.authInvalid" };
     }
 
-    // Valid credentials verified
-    setActiveSession({ email: foundKey });
+    setActiveSession({ email: cleanEmail });
     const user = { ...emptyUserProfile, ...account.user, isAuthenticated: true };
 
     let nextStep = 2;
     if (user.isProfileComplete) {
-      nextStep = 4; // Returning user with complete profile goes to Dashboard
+      nextStep = 4;
     } else if (user.isPersonalComplete) {
-      nextStep = 3; // Personal details already done: resume at Academic
+      nextStep = 3;
     }
 
     setSessionData({
@@ -301,10 +496,85 @@ export function AppProvider({ children }) {
       checklist: account.checklist || INITIAL_CHECKLIST,
     });
 
-    return { success: true, isProfileComplete: user.isProfileComplete };
+    return { success: true };
   };
 
-  const signOut = () => {
+  // 5. Send Password Reset
+  const resetPassword = async (email) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (supabase) {
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+        });
+        if (error) return { success: false, errorKey: "val.passwordResetError", message: error.message };
+        return { success: true };
+      } catch (err) {
+        return { success: false, errorKey: "val.passwordResetError", message: err.message };
+      }
+    }
+    return { success: true };
+  };
+
+  // 6. Sign In with Google
+  const signInWithGoogle = async () => {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+          },
+        });
+        if (error) throw error;
+        return { success: true, data };
+      } catch (err) {
+        console.error("Google OAuth error:", err);
+        return { success: false, message: err.message };
+      }
+    }
+
+    // Fallback demo account
+    const demoEmail = "student.tnea2026@gmail.com";
+    const accounts = getStoredAccounts();
+    let account = accounts[demoEmail];
+    if (!account) {
+      const demoUser = {
+        ...emptyUserProfile,
+        fullName: "Tamil Nadu Student",
+        email: demoEmail,
+        isAuthenticated: true,
+      };
+      accounts[demoEmail] = {
+        id: "usr_google_demo",
+        email: demoEmail,
+        user: demoUser,
+        savedColleges: [1, 3],
+        choiceList: [1, 3],
+        checklist: INITIAL_CHECKLIST,
+      };
+      saveAccounts(accounts);
+      account = accounts[demoEmail];
+    }
+
+    setActiveSession({ email: demoEmail });
+    setSessionData({
+      step: 2,
+      currentUser: { ...account.user, isAuthenticated: true },
+      savedColleges: account.savedColleges || [],
+      choiceList: account.choiceList || [],
+      checklist: account.checklist || INITIAL_CHECKLIST,
+    });
+    return { success: true };
+  };
+
+  // 7. Sign Out
+  const signOut = async () => {
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {}
+    }
     setActiveSession(null);
     setSessionData({
       step: 0, // Sign Out returns to Welcome Screen
@@ -313,6 +583,11 @@ export function AppProvider({ children }) {
       choiceList: [],
       checklist: INITIAL_CHECKLIST,
     });
+  };
+
+  // Legacy registerUser alias
+  const registerUser = async (fullName, email, password) => {
+    return sendSignUpOtp(fullName, email, password);
   };
 
   // Translation helper
@@ -342,7 +617,12 @@ export function AppProvider({ children }) {
         isAuthenticated: currentUser.isAuthenticated,
         updateUserData,
         registerUser,
+        sendSignUpOtp,
+        verifySignUpOtp,
+        resendSignUpOtp,
         authenticateUser,
+        resetPassword,
+        signInWithGoogle,
         signOut,
         savedColleges,
         toggleSaveCollege,
@@ -354,6 +634,7 @@ export function AppProvider({ children }) {
         cutoff,
         averagePercentage,
         eligibility,
+        isSupabaseConfigured: isSupabaseConfigured(),
       }}
     >
       {children}

@@ -29,7 +29,6 @@ export function Screen3Personal() {
   const [district, setDistrict] = useState(user.district || "");
   const [nativePlace, setNativePlace] = useState(user.nativePlace || "");
   const [address, setAddress] = useState(user.address || "");
-  const [declared, setDeclared] = useState(user.personalDeclared ?? true);
 
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -65,9 +64,6 @@ export function Screen3Personal() {
     if (!address.trim()) {
       errs.address = createError("val.addressRequired");
     }
-    if (!declared) {
-      errs.declared = createError("val.declarationRequired");
-    }
     return errs;
   };
 
@@ -85,7 +81,6 @@ export function Screen3Personal() {
       district: true,
       nativePlace: true,
       address: true,
-      declared: true,
     });
 
     if (Object.keys(validationErrors).length === 0) {
@@ -100,7 +95,6 @@ export function Screen3Personal() {
         district,
         nativePlace,
         address,
-        personalDeclared: declared,
         isPersonalComplete: true,
       });
       // Move to Screen 4 (Academic)
@@ -120,7 +114,6 @@ export function Screen3Personal() {
       district,
       nativePlace,
       address,
-      personalDeclared: declared,
     });
     setStep(1);
   };
@@ -224,6 +217,12 @@ export function Screen3Personal() {
                       <option value="" disabled>
                         {t("personal.selectGender")}
                       </option>
+                      {/* Safe legacy support if existing profile has a legacy option like Transgender */}
+                      {gender && !GENDERS.some((g) => g.value === gender) && (
+                        <option key={gender} value={gender}>
+                          {gender}
+                        </option>
+                      )}
                       {GENDERS.map((g) => (
                         <option key={g.value} value={g.value}>
                           {lang === "ta" ? g.labelTa : g.labelEn}
@@ -408,28 +407,6 @@ export function Screen3Personal() {
                   {errors.address && <div className="field-error-msg" role="alert">{formatError(errors.address, t)}</div>}
                 </div>
               </div>
-            </div>
-
-            {/* Declaration Card */}
-            <div className="declaration-card-box">
-              <div className="declaration-header">
-                <ShieldIcon size={18} color="#1d4ed8" />
-                <span className="declaration-title">Declaration</span>
-              </div>
-              <label className="declaration-check-label">
-                <input
-                  type="checkbox"
-                  checked={declared}
-                  onChange={(e) => {
-                    setDeclared(e.target.checked);
-                    if (errors.declared) setErrors((p) => ({ ...p, declared: null }));
-                  }}
-                />
-                <span className="declaration-text">
-                  {t("personal.declarationText")} <span className="req">*</span>
-                </span>
-              </label>
-              {errors.declared && <div className="field-error-msg" role="alert">{formatError(errors.declared, t)}</div>}
             </div>
 
             {/* Action Buttons */}

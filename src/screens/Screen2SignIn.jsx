@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../store.jsx";
 import { Header } from "../components/Header.jsx";
 import { createError, formatError } from "../validation.js";
@@ -14,53 +14,89 @@ import {
   ShieldIcon,
   GraduationCap,
   PeopleIcon,
+  CheckIcon,
 } from "../icons.jsx";
 
 export function Screen2SignIn() {
-  const { t, setStep, registerUser, authenticateUser } = useApp();
+  const {
+    t,
+    setStep,
+    sendSignUpOtp,
+    verifySignUpOtp,
+    resendSignUpOtp,
+    authenticateUser,
+    resetPassword,
+    signInWithGoogle,
+  } = useApp();
 
   const [tab, setTab] = useState("signin"); // "signin" | "signup"
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Form states
-  const [fullName, setFullName] = useState("");
-  const [emailOrReg, setEmailOrReg] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+
+  // OTP states for Sign Up
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Status & Feedback
   const [authError, setAuthError] = useState(null);
+  const [authSuccessMessage, setAuthSuccessMessage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Forgot Password Modal state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmailInput, setResetEmailInput] = useState("");
+  const [resetStatus, setResetStatus] = useState(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Validation errors
   const [errors, setErrors] = useState({});
 
+  // Cooldown timer effect
+  useEffect(() => {
+    let timer = null;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [resendCooldown]);
+
   const validate = () => {
     const errs = {};
-    if (tab === "signup") {
-      if (!fullName.trim()) {
-        errs.fullName = createError("val.fullNameRequired");
-      } else if (fullName.trim().length < 2) {
-        errs.fullName = createError("val.fullNameMin");
+    if (tab === "signup" && !otpStep) {
+      if (!firstName.trim()) {
+        errs.firstName = createError("val.firstNameRequired");
+      } else if (firstName.trim().length < 2) {
+        errs.firstName = createError("val.fullNameMin");
       }
     }
 
-    if (!emailOrReg.trim()) {
-      errs.emailOrReg = createError("val.emailRequired");
-    } else if (
-      tab === "signup" &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrReg.trim())
-    ) {
-      errs.emailOrReg = createError("val.emailInvalid");
+    if (!email.trim()) {
+      errs.email = createError("val.emailOnlyRequired");
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errs.email = createError("val.emailInvalid");
     }
 
-    if (!password) {
-      errs.password = createError("val.passwordRequired");
-    } else if (password.length < 6) {
-      errs.password = createError("val.passwordMin");
+    if (!otpStep || tab === "signin") {
+      if (!password) {
+        errs.password = createError("val.passwordRequired");
+      } else if (password.length < 6) {
+        errs.password = createError("val.passwordMin");
+      }
     }
 
-    if (tab === "signup") {
+    if (tab === "signup" && !otpStep) {
       if (!confirmPassword) {
         errs.confirmPassword = createError("val.required");
       } else if (confirmPassword !== password) {
@@ -68,30 +104,30 @@ export function Screen2SignIn() {
       }
     }
 
+    if (tab === "signup" && otpStep) {
+      if (!otp.trim()) {
+        errs.otp = createError("val.otpRequired");
+      }
+    }
+
     return errs;
   };
 
-  const handleSubmit = async (e) => {
+  // Sign In submit handler
+  const handleSignInSubmit = async (e) => {
     e.preventDefault();
     setAuthError(null);
+    setAuthSuccessMessage(null);
+
     const validationErrors = validate();
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length === 0) {
       setIsSubmitting(true);
       try {
-        if (tab === "signup") {
-          const res = await registerUser(fullName, emailOrReg, password);
-          if (!res.success) {
-            setAuthError(createError(res.errorKey));
-          }
-          // On success, registerUser sets session and navigates to Step 2 (Personal Details)
-        } else {
-          const res = await authenticateUser(emailOrReg, password);
-          if (!res.success) {
-            setAuthError(createError(res.errorKey));
-          }
-          // On success, authenticateUser sets session and navigates to Step 4 (Dashboard) if profile complete, or step 2/3
+        const res = await authenticateUser(email, password);
+        if (!res.success) {
+          setAuthError(createError(res.errorKey || "val.authInvalid"));
         }
       } catch (err) {
         setAuthError(createError("val.authInvalid"));
@@ -101,19 +137,114 @@ export function Screen2SignIn() {
     }
   };
 
-  const handleGoogleAuth = async () => {
-    // Development simulated Google sign-in with verified account registration
+  // Sign Up: Step 1 - Send OTP
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSuccessMessage(null);
+
+    const validationErrors = validate();
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length === 0) {
+      setIsSubmitting(true);
+      try {
+        const res = await sendSignUpOtp(firstName, email, password);
+        if (res.success) {
+          setOtpStep(true);
+          setResendCooldown(60);
+        } else {
+          setAuthError(createError(res.errorKey || "val.authInvalid"));
+        }
+      } catch (err) {
+        setAuthError(createError("val.authInvalid"));
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  // Sign Up: Step 2 - Verify OTP & Create Account
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+
+    if (!otp.trim()) {
+      setErrors({ otp: createError("val.otpRequired") });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const demoEmail = "student.tnea2026@gmail.com";
-      const demoName = fullName.trim() || "Tamil Nadu Student";
-      const res = await registerUser(demoName, demoEmail, "google_oauth_mock_2026");
-      if (!res.success) {
-        // If already exists, authenticate directly
-        await authenticateUser(demoEmail, "google_oauth_mock_2026");
+      const res = await verifySignUpOtp(firstName, email, password, otp);
+      if (res.success) {
+        // As requested: Show success message and navigate to Sign In screen
+        setAuthSuccessMessage(t("auth.accountCreatedSuccess"));
+        setTab("signin");
+        setOtpStep(false);
+        setOtp("");
+        setPassword("");
+        setConfirmPassword("");
+        setErrors({});
+      } else {
+        setAuthError(createError(res.errorKey || "val.otpInvalid"));
+      }
+    } catch (err) {
+      setAuthError(createError("val.otpInvalid"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Resend OTP handler with rate-limit cooldown
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      const res = await resendSignUpOtp(email);
+      if (res.success) {
+        setResendCooldown(60);
+      } else {
+        setAuthError(createError("val.authInvalid"));
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Real Google OAuth Handler
+  const handleGoogleAuth = async () => {
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setAuthError(createError("val.authInvalid"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Forgot password submit handler
+  const handleSendPasswordReset = async (e) => {
+    e.preventDefault();
+    setResetStatus(null);
+    if (!resetEmailInput.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmailInput.trim())) {
+      setResetStatus({ type: "error", message: t("val.emailInvalid") });
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const res = await resetPassword(resetEmailInput);
+      if (res.success) {
+        setResetStatus({ type: "success", message: t("auth.resetEmailSent") });
+      } else {
+        setResetStatus({ type: "error", message: t("val.passwordResetError") });
+      }
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -196,6 +327,7 @@ export function Screen2SignIn() {
                 className={`auth-tab-btn ${tab === "signin" ? "active" : ""}`}
                 onClick={() => {
                   setTab("signin");
+                  setOtpStep(false);
                   setErrors({});
                   setAuthError(null);
                 }}
@@ -211,6 +343,7 @@ export function Screen2SignIn() {
                 className={`auth-tab-btn ${tab === "signup" ? "active" : ""}`}
                 onClick={() => {
                   setTab("signup");
+                  setOtpStep(false);
                   setErrors({});
                   setAuthError(null);
                 }}
@@ -220,7 +353,15 @@ export function Screen2SignIn() {
               </button>
             </div>
 
-            {/* General Authentication Error Banner */}
+            {/* Success Message Banner */}
+            {authSuccessMessage && (
+              <div className="auth-success-banner" role="alert">
+                <CheckIcon size={18} color="#16a34a" />
+                <span>{authSuccessMessage}</span>
+              </div>
+            )}
+
+            {/* Error Message Banner */}
             {authError && (
               <div className="auth-error-banner" role="alert">
                 <ShieldIcon size={16} color="#dc2626" />
@@ -228,107 +369,234 @@ export function Screen2SignIn() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} noValidate className="auth-inner-form">
-              {/* Full Name if Sign Up */}
-              {tab === "signup" && (
+            {/* --- TAB 1: SIGN IN FORM --- */}
+            {tab === "signin" && (
+              <form onSubmit={handleSignInSubmit} noValidate className="auth-inner-form">
+                {/* Email Address (strictly email only) */}
                 <div className="form-group">
-                  <label className="form-label" htmlFor="auth-fullName">
-                    {t("auth.fullName")} <span className="req">*</span>
+                  <label className="form-label" htmlFor="signin-email">
+                    {t("auth.emailOnly")} <span className="req">*</span>
                   </label>
-                  <div className={`input-field-wrap ${errors.fullName ? "has-error" : ""}`}>
+                  <div className={`input-field-wrap ${errors.email ? "has-error" : ""}`}>
+                    <span className="input-prefix-icon">
+                      <MailIcon size={16} color="#94a3b8" />
+                    </span>
+                    <input
+                      id="signin-email"
+                      type="email"
+                      className="form-input"
+                      placeholder={t("auth.emailOnlyPlaceholder")}
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
+                        if (authError) setAuthError(null);
+                      }}
+                    />
+                  </div>
+                  {errors.email && (
+                    <div className="field-error-msg" role="alert">{formatError(errors.email, t)}</div>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signin-password">
+                    {t("auth.password")} <span className="req">*</span>
+                  </label>
+                  <div className={`input-field-wrap ${errors.password ? "has-error" : ""}`}>
+                    <span className="input-prefix-icon">
+                      <LockIcon size={16} color="#94a3b8" />
+                    </span>
+                    <input
+                      id="signin-password"
+                      type={showPassword ? "text" : "password"}
+                      className="form-input"
+                      placeholder={t("auth.passwordPlaceholder")}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (errors.password) setErrors((prev) => ({ ...prev, password: null }));
+                        if (authError) setAuthError(null);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="input-suffix-btn"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label="Toggle password visibility"
+                    >
+                      {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <div className="field-error-msg" role="alert">{formatError(errors.password, t)}</div>
+                  )}
+                </div>
+
+                {/* Options row: Remember Me & Forgot Password */}
+                <div className="auth-options-row">
+                  <label className="checkbox-label-simple">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                    />
+                    <span>{t("auth.rememberMe")}</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    className="forgot-pass-btn"
+                    onClick={() => {
+                      setResetEmailInput(email);
+                      setResetStatus(null);
+                      setShowForgotPassword(true);
+                    }}
+                  >
+                    <LockIcon size={13} color="#1d4ed8" />
+                    <span>{t("auth.forgotPassword")}</span>
+                  </button>
+                </div>
+
+                {/* Submit Sign In CTA */}
+                <button
+                  type="submit"
+                  className="btn-primary-blue-wide"
+                  disabled={isSubmitting}
+                >
+                  <span>{isSubmitting ? t("common.loading") : t("auth.signInBtn")}</span>
+                  <ArrowRight size={18} />
+                </button>
+
+                {/* Divider */}
+                <div className="auth-or-divider">
+                  <span>{t("auth.or")}</span>
+                </div>
+
+                {/* Google Sign In */}
+                <button
+                  type="button"
+                  className="btn-google-auth"
+                  onClick={handleGoogleAuth}
+                  disabled={isSubmitting}
+                >
+                  <GoogleLogo size={18} />
+                  <span>{t("auth.continueGoogle")}</span>
+                </button>
+
+                {/* Footer Switch */}
+                <div className="auth-footer-switch">
+                  <span>{t("auth.noAccount")}</span>{" "}
+                  <button
+                    type="button"
+                    className="auth-link-btn"
+                    onClick={() => {
+                      setTab("signup");
+                      setOtpStep(false);
+                      setAuthError(null);
+                      setErrors({});
+                    }}
+                  >
+                    {t("auth.tabSignUp")}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* --- TAB 2: SIGN UP FORM --- */}
+            {tab === "signup" && !otpStep && (
+              <form onSubmit={handleSendOtp} noValidate className="auth-inner-form">
+                {/* First Name */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signup-firstName">
+                    {t("auth.firstName")} <span className="req">*</span>
+                  </label>
+                  <div className={`input-field-wrap ${errors.firstName ? "has-error" : ""}`}>
                     <span className="input-prefix-icon">
                       <UserIcon size={16} color="#94a3b8" />
                     </span>
                     <input
-                      id="auth-fullName"
+                      id="signup-firstName"
                       type="text"
                       className="form-input"
-                      placeholder={t("auth.fullNamePlaceholder")}
-                      value={fullName}
+                      placeholder={t("auth.firstNamePlaceholder")}
+                      value={firstName}
                       onChange={(e) => {
-                        setFullName(e.target.value);
-                        if (errors.fullName) {
-                          setErrors((prev) => ({ ...prev, fullName: null }));
-                        }
+                        setFirstName(e.target.value);
+                        if (errors.firstName) setErrors((prev) => ({ ...prev, firstName: null }));
                       }}
                     />
                   </div>
-                  {errors.fullName && (
-                    <div className="field-error-msg" role="alert">{formatError(errors.fullName, t)}</div>
+                  {errors.firstName && (
+                    <div className="field-error-msg" role="alert">{formatError(errors.firstName, t)}</div>
                   )}
                 </div>
-              )}
 
-              {/* Email / Register Number */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="auth-email">
-                  {t("auth.emailOrReg")} <span className="req">*</span>
-                </label>
-                <div className={`input-field-wrap ${errors.emailOrReg ? "has-error" : ""}`}>
-                  <span className="input-prefix-icon">
-                    <MailIcon size={16} color="#94a3b8" />
-                  </span>
-                  <input
-                    id="auth-email"
-                    type={tab === "signup" ? "email" : "text"}
-                    className="form-input"
-                    placeholder={t("auth.emailOrRegPlaceholder")}
-                    value={emailOrReg}
-                    onChange={(e) => {
-                      setEmailOrReg(e.target.value);
-                      if (errors.emailOrReg) {
-                        setErrors((prev) => ({ ...prev, emailOrReg: null }));
-                      }
-                      if (authError) setAuthError(null);
-                    }}
-                  />
-                </div>
-                {errors.emailOrReg && (
-                  <div className="field-error-msg" role="alert">{formatError(errors.emailOrReg, t)}</div>
-                )}
-              </div>
-
-              {/* Password */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="auth-password">
-                  {t("auth.password")} <span className="req">*</span>
-                </label>
-                <div className={`input-field-wrap ${errors.password ? "has-error" : ""}`}>
-                  <span className="input-prefix-icon">
-                    <LockIcon size={16} color="#94a3b8" />
-                  </span>
-                  <input
-                    id="auth-password"
-                    type={showPassword ? "text" : "password"}
-                    className="form-input"
-                    placeholder={t("auth.passwordPlaceholder")}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (errors.password) {
-                        setErrors((prev) => ({ ...prev, password: null }));
-                      }
-                      if (authError) setAuthError(null);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="input-suffix-btn"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label="Toggle password visibility"
-                  >
-                    {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
-                  </button>
-                </div>
-                {errors.password && (
-                  <div className="field-error-msg" role="alert">{formatError(errors.password, t)}</div>
-                )}
-              </div>
-
-              {/* Confirm Password if Sign Up */}
-              {tab === "signup" && (
+                {/* Email Address (strictly email only) */}
                 <div className="form-group">
-                  <label className="form-label" htmlFor="auth-confirmPassword">
+                  <label className="form-label" htmlFor="signup-email">
+                    {t("auth.emailOnly")} <span className="req">*</span>
+                  </label>
+                  <div className={`input-field-wrap ${errors.email ? "has-error" : ""}`}>
+                    <span className="input-prefix-icon">
+                      <MailIcon size={16} color="#94a3b8" />
+                    </span>
+                    <input
+                      id="signup-email"
+                      type="email"
+                      className="form-input"
+                      placeholder={t("auth.emailOnlyPlaceholder")}
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
+                        if (authError) setAuthError(null);
+                      }}
+                    />
+                  </div>
+                  {errors.email && (
+                    <div className="field-error-msg" role="alert">{formatError(errors.email, t)}</div>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signup-password">
+                    {t("auth.password")} <span className="req">*</span>
+                  </label>
+                  <div className={`input-field-wrap ${errors.password ? "has-error" : ""}`}>
+                    <span className="input-prefix-icon">
+                      <LockIcon size={16} color="#94a3b8" />
+                    </span>
+                    <input
+                      id="signup-password"
+                      type={showPassword ? "text" : "password"}
+                      className="form-input"
+                      placeholder={t("auth.passwordPlaceholder")}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (errors.password) setErrors((prev) => ({ ...prev, password: null }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="input-suffix-btn"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label="Toggle password visibility"
+                    >
+                      {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <div className="field-error-msg" role="alert">{formatError(errors.password, t)}</div>
+                  )}
+                </div>
+
+                {/* Confirm Password */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signup-confirmPassword">
                     {t("auth.confirmPassword")} <span className="req">*</span>
                   </label>
                   <div className={`input-field-wrap ${errors.confirmPassword ? "has-error" : ""}`}>
@@ -336,7 +604,7 @@ export function Screen2SignIn() {
                       <LockIcon size={16} color="#94a3b8" />
                     </span>
                     <input
-                      id="auth-confirmPassword"
+                      id="signup-confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
                       className="form-input"
                       placeholder={t("auth.confirmPasswordPlaceholder")}
@@ -361,130 +629,231 @@ export function Screen2SignIn() {
                     <div className="field-error-msg" role="alert">{formatError(errors.confirmPassword, t)}</div>
                   )}
                 </div>
-              )}
 
-              {/* Options row: Remember Me & Forgot Password */}
-              <div className="auth-options-row">
-                <label className="checkbox-label-simple">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  <span>{t("auth.rememberMe")}</span>
-                </label>
+                {/* Send OTP CTA Button */}
+                <button
+                  type="submit"
+                  className="btn-primary-blue-wide"
+                  disabled={isSubmitting}
+                >
+                  <span>{isSubmitting ? t("auth.sendingOtp") : t("auth.sendOtpBtn")}</span>
+                  <ArrowRight size={18} />
+                </button>
 
-                {tab === "signin" && (
+                {/* Divider */}
+                <div className="auth-or-divider">
+                  <span>{t("auth.or")}</span>
+                </div>
+
+                {/* Google Sign Up */}
+                <button
+                  type="button"
+                  className="btn-google-auth"
+                  onClick={handleGoogleAuth}
+                  disabled={isSubmitting}
+                >
+                  <GoogleLogo size={18} />
+                  <span>{t("auth.continueGoogle")}</span>
+                </button>
+
+                {/* Footer Switch */}
+                <div className="auth-footer-switch">
+                  <span>{t("auth.haveAccount")}</span>{" "}
                   <button
                     type="button"
-                    className="forgot-pass-btn"
-                    onClick={() => alert("Password reset instructions will be sent to your registered email.")}
+                    className="auth-link-btn"
+                    onClick={() => {
+                      setTab("signin");
+                      setOtpStep(false);
+                      setAuthError(null);
+                      setErrors({});
+                    }}
                   >
-                    <LockIcon size={13} color="#1d4ed8" />
-                    <span>{t("auth.forgotPassword")}</span>
+                    {t("auth.tabSignIn")}
                   </button>
-                )}
-              </div>
+                </div>
+              </form>
+            )}
 
-              {/* Submit CTA */}
-              <button
-                type="submit"
-                className="btn-primary-blue-wide"
-                disabled={isSubmitting}
-              >
-                <span>
-                  {isSubmitting
-                    ? t("common.loading")
-                    : tab === "signin"
-                    ? t("auth.signInBtn")
-                    : t("auth.signUpBtn")}
-                </span>
-                <ArrowRight size={18} />
-              </button>
+            {/* --- TAB 2 STEP 2: OTP VERIFICATION --- */}
+            {tab === "signup" && otpStep && (
+              <form onSubmit={handleVerifyOtp} noValidate className="auth-inner-form">
+                <div className="otp-info-card">
+                  <p className="otp-info-text">
+                    Verification code sent to <strong>{email}</strong>
+                  </p>
+                </div>
 
-              {/* Divider */}
-              <div className="auth-or-divider">
-                <span>{t("auth.or")}</span>
-              </div>
+                {/* OTP Input Field */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signup-otp">
+                    {t("auth.otpLabel")} <span className="req">*</span>
+                  </label>
+                  <div className={`input-field-wrap ${errors.otp ? "has-error" : ""}`}>
+                    <span className="input-prefix-icon">
+                      <LockIcon size={16} color="#94a3b8" />
+                    </span>
+                    <input
+                      id="signup-otp"
+                      type="text"
+                      className="form-input otp-digit-input"
+                      placeholder={t("auth.otpPlaceholder")}
+                      value={otp}
+                      maxLength={8}
+                      onChange={(e) => {
+                        setOtp(e.target.value);
+                        if (errors.otp) setErrors((prev) => ({ ...prev, otp: null }));
+                        if (authError) setAuthError(null);
+                      }}
+                      autoFocus
+                    />
+                  </div>
+                  {errors.otp && (
+                    <div className="field-error-msg" role="alert">{formatError(errors.otp, t)}</div>
+                  )}
+                </div>
 
-              {/* Google Button */}
-              <button
-                type="button"
-                className="btn-google-auth"
-                onClick={handleGoogleAuth}
-                disabled={isSubmitting}
-              >
-                <GoogleLogo size={18} />
-                <span>{t("auth.continueGoogle")}</span>
-              </button>
+                {/* Verify OTP Button */}
+                <button
+                  type="submit"
+                  className="btn-primary-blue-wide"
+                  disabled={isSubmitting}
+                >
+                  <span>{isSubmitting ? t("auth.verifyingOtp") : t("auth.verifyOtpBtn")}</span>
+                  <CheckIcon size={18} color="#ffffff" />
+                </button>
 
-              {/* Toggle Tab Footer */}
-              <div className="auth-footer-switch">
-                {tab === "signin" ? (
-                  <>
-                    <span>{t("auth.noAccount")}</span>{" "}
+                {/* Resend OTP with Cooldown */}
+                <div className="otp-resend-row">
+                  {resendCooldown > 0 ? (
+                    <span className="cooldown-text">
+                      {t("auth.resendCooldown", { seconds: resendCooldown })}
+                    </span>
+                  ) : (
                     <button
                       type="button"
-                      className="auth-link-btn"
-                      onClick={() => {
-                        setTab("signup");
-                        setAuthError(null);
-                        setErrors({});
-                      }}
+                      className="btn-resend-otp"
+                      onClick={handleResendOtp}
+                      disabled={isSubmitting}
                     >
-                      {t("auth.tabSignUp")}
+                      {t("auth.resendOtpBtn")}
                     </button>
-                  </>
-                ) : (
-                  <>
-                    <span>{t("auth.haveAccount")}</span>{" "}
-                    <button
-                      type="button"
-                      className="auth-link-btn"
-                      onClick={() => {
-                        setTab("signin");
-                        setAuthError(null);
-                        setErrors({});
-                      }}
-                    >
-                      {t("auth.tabSignIn")}
-                    </button>
-                  </>
-                )}
-              </div>
-            </form>
+                  )}
+                </div>
+
+                {/* Back to Edit Details */}
+                <div className="auth-footer-switch">
+                  <button
+                    type="button"
+                    className="auth-link-btn"
+                    onClick={() => {
+                      setOtpStep(false);
+                      setAuthError(null);
+                      setErrors({});
+                    }}
+                  >
+                    ← Edit Details
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
 
-        {/* Bottom 3 Feature Cards */}
+        {/* Forgot Password Modal */}
+        {showForgotPassword && (
+          <div className="modal-backdrop" role="dialog" aria-modal="true">
+            <div className="modal-card">
+              <div className="modal-header">
+                <h3 className="modal-title">{t("auth.resetPasswordTitle")}</h3>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setShowForgotPassword(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="modal-desc">{t("auth.resetPasswordDesc")}</p>
+
+              {resetStatus && (
+                <div className={`reset-status-banner ${resetStatus.type}`}>
+                  <span>{resetStatus.message}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSendPasswordReset} className="modal-form">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="reset-email">
+                    {t("auth.emailOnly")} <span className="req">*</span>
+                  </label>
+                  <div className="input-field-wrap">
+                    <span className="input-prefix-icon">
+                      <MailIcon size={16} color="#94a3b8" />
+                    </span>
+                    <input
+                      id="reset-email"
+                      type="email"
+                      className="form-input"
+                      value={resetEmailInput}
+                      onChange={(e) => setResetEmailInput(e.target.value)}
+                      placeholder={t("auth.emailOnlyPlaceholder")}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    className="btn-outline-back"
+                    onClick={() => setShowForgotPassword(false)}
+                  >
+                    {t("common.cancel")}
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary-blue-pill"
+                    disabled={isResetting}
+                  >
+                    {isResetting ? t("common.loading") : t("auth.sendResetLinkBtn")}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Feature Cards */}
         <section className="auth-bottom-cards" aria-label="Security & Information badges">
-          <div className="auth-feature-pill">
-            <div className="pill-icon-square bg-blue-subtle">
-              <ShieldIcon size={20} color="#2563eb" />
+          <div className="auth-badge-card">
+            <div className="auth-badge-icon bg-blue-subtle">
+              <ShieldIcon size={22} color="#1d4ed8" />
             </div>
-            <div className="pill-text-col">
-              <h4>{t("auth.card1Title")}</h4>
-              <p>{t("auth.card1Desc")}</p>
-            </div>
-          </div>
-
-          <div className="auth-feature-pill">
-            <div className="pill-icon-square bg-purple-subtle">
-              <GraduationCap size={20} color="#7c3aed" />
-            </div>
-            <div className="pill-text-col">
-              <h4>{t("auth.card2Title")}</h4>
-              <p>{t("auth.card2Desc")}</p>
+            <div className="auth-badge-text">
+              <h4 className="auth-badge-title">{t("auth.card1Title")}</h4>
+              <p className="auth-badge-desc">{t("auth.card1Desc")}</p>
             </div>
           </div>
 
-          <div className="auth-feature-pill">
-            <div className="pill-icon-square bg-teal-subtle">
-              <PeopleIcon size={20} color="#0d9488" />
+          <div className="auth-badge-card">
+            <div className="auth-badge-icon bg-green-subtle">
+              <GraduationCap size={22} color="#16a34a" />
             </div>
-            <div className="pill-text-col">
-              <h4>{t("auth.card3Title")}</h4>
-              <p>{t("auth.card3Desc")}</p>
+            <div className="auth-badge-text">
+              <h4 className="auth-badge-title">{t("auth.card2Title")}</h4>
+              <p className="auth-badge-desc">{t("auth.card2Desc")}</p>
+            </div>
+          </div>
+
+          <div className="auth-badge-card">
+            <div className="auth-badge-icon bg-purple-subtle">
+              <PeopleIcon size={22} color="#9333ea" />
+            </div>
+            <div className="auth-badge-text">
+              <h4 className="auth-badge-title">{t("auth.card3Title")}</h4>
+              <p className="auth-badge-desc">{t("auth.card3Desc")}</p>
             </div>
           </div>
         </section>

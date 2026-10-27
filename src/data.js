@@ -31,7 +31,8 @@ export const PASSING_YEARS = ["2026", "2025", "2024", "2023", "2022"];
 export const GENDERS = [
   { value: "Male", labelEn: "Male", labelTa: "ஆண்" },
   { value: "Female", labelEn: "Female", labelTa: "பெண்" },
-  { value: "Transgender", labelEn: "Transgender", labelTa: "மூன்றாம் பாலினம்" },
+  { value: "Others", labelEn: "Others", labelTa: "மற்றவை" },
+  { value: "Prefer not to say", labelEn: "Prefer not to say", labelTa: "குறிப்பிட விரும்பவில்லை" },
 ];
 
 export const STATES = [
