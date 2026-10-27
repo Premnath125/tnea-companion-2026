@@ -1,9 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../store.jsx";
 import {
   GraduationCap,
-  SpeakerIcon,
-  StopSquareIcon,
   BellIcon,
   CalculatorIcon,
   BookmarkIcon,
@@ -29,6 +27,7 @@ export function Screen5Dashboard() {
     lang,
     setLang,
     user,
+    isAuthenticated,
     cutoff,
     averagePercentage,
     eligibility,
@@ -38,12 +37,16 @@ export function Screen5Dashboard() {
     updateChoiceList,
     checklist,
     toggleChecklistItem,
-    isAudioPlaying,
-    handleToggleAudio,
-    handleStopAudio,
     signOut,
     setStep,
   } = useApp();
+
+  // Guard: User must be authenticated to view dashboard
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setStep(0);
+    }
+  }, [isAuthenticated]);
 
   // Active view or modal: "dashboard" | "search_colleges" | "cutoff_analysis" | "choice_list" | "queries" | "profile" | "checklist" | "settings"
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -162,7 +165,7 @@ export function Screen5Dashboard() {
 
       {/* 2. Main View Area */}
       <div className="dash-main-area">
-        {/* Top Header Bar */}
+        {/* Top Header Bar (No audio buttons) */}
         <header className="dash-top-header">
           <div className="dash-header-left">
             <span className="dash-page-crumb">
@@ -201,26 +204,6 @@ export function Screen5Dashboard() {
                 தமிழ்
               </button>
             </div>
-
-            {/* Audio Guidance */}
-            <button
-              type="button"
-              className={`audio-btn ${isAudioPlaying ? "playing" : ""}`}
-              onClick={() => handleToggleAudio(t("dash.speechText"))}
-              aria-label={t("app.voiceAria")}
-              title={isAudioPlaying ? t("app.voicePlaying") : t("app.voiceAria")}
-            >
-              <SpeakerIcon size={18} color="#0284c7" />
-            </button>
-
-            <button
-              type="button"
-              className="audio-stop-btn"
-              onClick={handleStopAudio}
-              aria-label={t("app.stopAudio")}
-            >
-              <StopSquareIcon size={16} color="#0284c7" />
-            </button>
 
             {/* Notification Bell */}
             <div className="notification-bell-wrap">
@@ -263,7 +246,7 @@ export function Screen5Dashboard() {
               title={user.fullName || "Student Profile"}
             >
               <div className="avatar-circle">
-                {(user.fullName || "P").charAt(0).toUpperCase()}
+                {(user.fullName || user.email || "S").charAt(0).toUpperCase()}
               </div>
             </div>
           </div>
@@ -410,7 +393,6 @@ export function Screen5Dashboard() {
                 </div>
 
                 <div className="updates-list-table">
-                  {/* Item 1 */}
                   <div className="update-row-item">
                     <div className="update-item-text">
                       <h4 className="update-item-title">{t("dash.sampleUpdate1Title")}</h4>
@@ -419,7 +401,6 @@ export function Screen5Dashboard() {
                     <div className="update-item-date">{t("dash.sampleUpdate1Date")}</div>
                   </div>
 
-                  {/* Item 2 */}
                   <div className="update-row-item">
                     <div className="update-item-text">
                       <h4 className="update-item-title">{t("dash.sampleUpdate2Title")}</h4>
@@ -428,7 +409,6 @@ export function Screen5Dashboard() {
                     <div className="update-item-date">{t("dash.sampleUpdate2Date")}</div>
                   </div>
 
-                  {/* Item 3 */}
                   <div className="update-row-item">
                     <div className="update-item-text">
                       <h4 className="update-item-title">{t("dash.sampleUpdate3Title")}</h4>
@@ -541,17 +521,17 @@ export function Screen5Dashboard() {
                   <div className="marks-analysis-row">
                     <div className="subject-box">
                       <span>Mathematics</span>
-                      <b>{user.maths || 0} / {user.maxMaths || 100}</b>
+                      <b>{user.maths || "—"} / {user.maxMaths || 100}</b>
                       <small>Full Weightage (100)</small>
                     </div>
                     <div className="subject-box">
                       <span>Physics</span>
-                      <b>{user.physics || 0} / {user.maxPhysics || 100}</b>
+                      <b>{user.physics || "—"} / {user.maxPhysics || 100}</b>
                       <small>Half Weightage (50)</small>
                     </div>
                     <div className="subject-box">
                       <span>Chemistry</span>
-                      <b>{user.chemistry || 0} / {user.maxChemistry || 100}</b>
+                      <b>{user.chemistry || "—"} / {user.maxChemistry || 100}</b>
                       <small>Half Weightage (50)</small>
                     </div>
                   </div>
@@ -559,7 +539,7 @@ export function Screen5Dashboard() {
                     <h4>{eligibility.eligible ? t("academic.sidebarEligibleTitle") : t("academic.sidebarNotEligibleTitle")}</h4>
                     <p>{t("academic.sidebarEligibleDesc", {
                       avg: averagePercentage !== null ? averagePercentage.toFixed(2) : "0",
-                      community: user.community,
+                      community: user.community || "BC",
                       minRequired: eligibility.minRequired
                     })}</p>
                   </div>
@@ -692,26 +672,26 @@ export function Screen5Dashboard() {
               <div className="profile-details-grid">
                 <div className="profile-detail-card">
                   <h4>Personal & Nativity Information</h4>
-                  <p><b>Name:</b> {user.fullName}</p>
-                  <p><b>Email:</b> {user.email}</p>
-                  <p><b>Mobile:</b> +91 {user.mobile}</p>
-                  <p><b>DOB:</b> {user.dob}</p>
-                  <p><b>Gender:</b> {user.gender}</p>
-                  <p><b>Community:</b> {user.community}</p>
-                  <p><b>State:</b> {user.state}</p>
-                  <p><b>District:</b> {user.district}</p>
-                  <p><b>Native Place:</b> {user.nativePlace}</p>
-                  <p><b>Address:</b> {user.address}</p>
+                  <p><b>Name:</b> {user.fullName || "—"}</p>
+                  <p><b>Email:</b> {user.email || "—"}</p>
+                  <p><b>Mobile:</b> {user.mobile ? `+91 ${user.mobile}` : "—"}</p>
+                  <p><b>DOB:</b> {user.dob || "—"}</p>
+                  <p><b>Gender:</b> {user.gender || "—"}</p>
+                  <p><b>Community:</b> {user.community || "—"}</p>
+                  <p><b>State:</b> {user.state || "—"}</p>
+                  <p><b>District:</b> {user.district || "—"}</p>
+                  <p><b>Native Place:</b> {user.nativePlace || "—"}</p>
+                  <p><b>Address:</b> {user.address || "—"}</p>
                 </div>
 
                 <div className="profile-detail-card">
                   <h4>Academic Details</h4>
-                  <p><b>Board:</b> {user.board}</p>
-                  <p><b>Passing Year:</b> {user.passingYear}</p>
-                  <p><b>School:</b> {user.schoolName}</p>
-                  <p><b>Mathematics:</b> {user.maths} / {user.maxMaths}</p>
-                  <p><b>Physics:</b> {user.physics} / {user.maxPhysics}</p>
-                  <p><b>Chemistry:</b> {user.chemistry} / {user.maxChemistry}</p>
+                  <p><b>Board:</b> {user.board || "—"}</p>
+                  <p><b>Passing Year:</b> {user.passingYear || "—"}</p>
+                  <p><b>School:</b> {user.schoolName || "—"}</p>
+                  <p><b>Mathematics:</b> {user.maths !== "" ? `${user.maths} / ${user.maxMaths}` : "—"}</p>
+                  <p><b>Physics:</b> {user.physics !== "" ? `${user.physics} / ${user.maxPhysics}` : "—"}</p>
+                  <p><b>Chemistry:</b> {user.chemistry !== "" ? `${user.chemistry} / ${user.maxChemistry}` : "—"}</p>
                   <p><b>Calculated Cutoff:</b> {formatCutoff(cutoff)} / 200</p>
                   <p><b>Average:</b> {averagePercentage !== null ? `${averagePercentage.toFixed(2)}%` : "N/A"}</p>
                   <p><b>7.5% Govt School Quota:</b> {user.studiedGovtSchool === "yes" ? "Yes" : "No"}</p>

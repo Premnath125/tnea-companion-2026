@@ -101,6 +101,7 @@ export function Screen3Personal() {
         nativePlace,
         address,
         personalDeclared: declared,
+        isPersonalComplete: true,
       });
       // Move to Screen 4 (Academic)
       setStep(3);

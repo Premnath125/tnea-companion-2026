@@ -6,10 +6,6 @@ export const translations = {
     "app.title": "TNEA Companion",
     "app.subtitle": "Tamil Nadu Engineering Admissions 2026",
     "app.guideSubtitle": "Your guide to Tamil Nadu Engineering Admissions",
-    "app.voiceAria": "Voice assistance guidance",
-    "app.voicePlaying": "Playing audio guidance",
-    "app.voiceStopped": "Audio guidance stopped",
-    "app.stopAudio": "Stop audio",
     "app.lang": "EN",
     "app.langTa": "தமிழ்",
 
@@ -28,9 +24,8 @@ export const translations = {
     "welcome.card2Desc": "Trusted and verified",
     "welcome.card3Title": "Official Certificates",
     "welcome.card3Desc": "From your institution",
-    "welcome.card4Title": "Voice Assistance",
-    "welcome.card4Desc": "Guidance at every step",
-    "welcome.speechText": "Welcome to TNEA Companion, your smart guide for Tamil Nadu Engineering Admissions 2026. Click Get Started to calculate your engineering cutoff, explore colleges, and manage your counselling application.",
+    "welcome.card4Title": "Admissions Guidance",
+    "welcome.card4Desc": "Step-by-step choice filling assistance",
 
     // Stepper
     "step1.title": "Sign In / Sign Up",
@@ -44,6 +39,7 @@ export const translations = {
     "step.of": "Step {current} of {total}",
 
     // Screen 2: Sign In / Sign Up
+    "auth.backToWelcome": "← Back to Welcome",
     "auth.badge": "TAMIL NADU ENGINEERING ADMISSIONS",
     "auth.welcomeBack": "Welcome",
     "auth.backHighlight": "Back!",
@@ -76,8 +72,7 @@ export const translations = {
     "auth.card2Title": "Official Information",
     "auth.card2Desc": "From TNEA and Government Sources",
     "auth.card3Title": "Accessible for All",
-    "auth.card3Desc": "With audio guidance and multi-language support",
-    "auth.speechText": "Sign in to TNEA Companion with your registered email and password, or switch to the Sign Up tab to create your profile.",
+    "auth.card3Desc": "With multi-language support for all students",
 
     // Screen 3: Personal & Nativity
     "personal.badge": "Step 2 of 3",
@@ -109,7 +104,6 @@ export const translations = {
     "personal.tip3": "Select your community as per your certificate.",
     "personal.tip4": "Provide your native place and address details carefully.",
     "personal.slogan": "Every detail brings you closer to your dream!",
-    "personal.speechText": "Step 2: Personal and nativity details. Enter your full name, date of birth, community, mobile number, state, district, and address exactly as in your official certificates.",
 
     // Screen 4: Academic & Eligibility Details
     "academic.badge": "Step 3 of 3",
@@ -151,6 +145,7 @@ export const translations = {
     "academic.resSports": "Eminent sportsperson",
     "academic.declarationText": "I hereby declare that the information provided above is true and correct to the best of my knowledge.",
     "academic.completeProfile": "Complete Profile",
+    "academic.calculateCutoffBtn": "Calculate Cutoff & Continue",
     "academic.completeHelper": "Fill every field marked * and tick the declaration to continue.",
     "academic.sidebarCutoffTitle": "YOUR ENGINEERING CUTOFF",
     "academic.sidebarAvg": "Maths, Physics, Chemistry average",
@@ -158,12 +153,14 @@ export const translations = {
     "academic.sidebarNotEligibleTitle": "Minimum marks requirement not met",
     "academic.sidebarEligibleDesc": "Your Maths, Physics and Chemistry average is {avg}%. The minimum for {community} is {minRequired}%.",
     "academic.sidebarDisclaimer": "Meeting the minimum marks does not guarantee a college seat. Selection depends on the admission rules, your rank and cutoff, reservation rules and seat availability.",
+    "academic.sidebarMandatedExplanation": "Your entered details meet the applicable TNEA eligibility requirements. However, meeting the eligibility requirements does not guarantee admission or a seat in an engineering college. Admission depends on the applicable rules, merit, rank, available seats, and counselling outcomes.",
+    "academic.pendingTitle": "Enter Class 12 Marks",
+    "academic.pendingDesc": "Your cutoff score and eligibility breakdown will appear here once you enter valid marks and submit.",
     "academic.howThisWorks": "How this works",
     "academic.rule1": "Cutoff = Maths + Physics ÷ 2 + Chemistry ÷ 2. The highest possible score is 200.",
     "academic.rule2": "Minimum marks: your Maths, Physics and Chemistry average must be at least 45% for OC and 40% for the other communities.",
     "academic.rule3": "Use your marks exactly as printed. Rounding is not used for the minimum marks check.",
     "academic.rule4": "CBSE, ICSE or other board? TNEA may adjust your marks, so treat this cutoff as an estimate.",
-    "academic.speechText": "Step 3: Academic details and cutoff calculation. Enter your marks for Mathematics, Physics, and Chemistry. Your TNEA cutoff out of 200 is calculated automatically in real time.",
 
     // Screen 5: Main Dashboard
     "dash.welcomeBack": "Welcome back!",
@@ -200,7 +197,6 @@ export const translations = {
     "dash.sampleUpdate3Title": "Seat Allotment Results Published",
     "dash.sampleUpdate3Desc": "View your college allotment for the latest round.",
     "dash.sampleUpdate3Date": "Sample Date 3, 2026",
-    "dash.speechText": "Welcome to your TNEA Companion dashboard. Review your engineering cutoff, view saved colleges, track official admission updates, and check your admission checklist.",
 
     // Search Colleges Modal / View
     "colleges.title": "TNEA Engineering Colleges Explorer",
@@ -244,6 +240,10 @@ export const translations = {
     "val.passwordRequired": "Please enter your password.",
     "val.passwordMin": "Password must be at least 6 characters.",
     "val.passwordMismatch": "Passwords do not match.",
+    "val.authInvalid": "Invalid email or password. Please try again.",
+    "val.accountNotFound": "No account found with this email or register number. Please sign up first.",
+    "val.accountExists": "An account with this email already exists. Please sign in.",
+    "val.termsRequired": "Please accept the required terms to continue.",
     "val.dobRequired": "Please select your date of birth.",
     "val.genderRequired": "Please select your gender.",
     "val.communityRequired": "Please select your community category.",
@@ -272,10 +272,6 @@ export const translations = {
     "app.title": "TNEA வழிகாட்டி",
     "app.subtitle": "தமிழ்நாடு பொறியியல் சேர்க்கை 2026",
     "app.guideSubtitle": "தமிழ்நாடு பொறியியல் சேர்க்கைக்கான உங்கள் வழிகாட்டி",
-    "app.voiceAria": "குரல் வழிகாட்டுதல் உதவி",
-    "app.voicePlaying": "குரல் வழிகாட்டுதல் ஒலிக்கிறது",
-    "app.voiceStopped": "குரல் வழிகாட்டுதல் நிறுத்தப்பட்டது",
-    "app.stopAudio": "ஒலியை நிறுத்து",
     "app.lang": "EN",
     "app.langTa": "தமிழ்",
 
@@ -294,9 +290,8 @@ export const translations = {
     "welcome.card2Desc": "நம்பகமான மற்றும் சரிபார்க்கப்பட்ட நடைமுறை",
     "welcome.card3Title": "அதிகாரப்பூர்வ சான்றிதழ்கள்",
     "welcome.card3Desc": "உங்கள் கல்வி நிறுவனத்திலிருந்து",
-    "welcome.card4Title": "குரல் வழிகாட்டுதல்",
-    "welcome.card4Desc": "ஒவ்வொரு நிலையிலும் உதவி",
-    "welcome.speechText": "தமிழ்நாடு பொறியியல் சேர்க்கை 2026 வழிகாட்டிக்கு நல்வரவு. உங்கள் பொறியியல் கட்-ஆஃப் கணக்கிடவும், கல்லூரிகளை ஆராயவும், கலந்தாய்வு விண்ணப்பத்தை நிர்வகிக்கவும் தொடங்குங்கள் பொத்தானை அழுத்தவும்.",
+    "welcome.card4Title": "சேர்க்கை வழிகாட்டுதல்",
+    "welcome.card4Desc": "விருப்பக் கல்லூரி தேர்வுக்கான வழிகாட்டுதல்",
 
     // Stepper
     "step1.title": "உள்நுழைவு / பதிவு",
@@ -310,6 +305,7 @@ export const translations = {
     "step.of": "படி {current} / {total}",
 
     // Screen 2: Sign In / Sign Up
+    "auth.backToWelcome": "← முகப்பு பக்கத்திற்குச் செல்க",
     "auth.badge": "தமிழ்நாடு பொறியியல் சேர்க்கை",
     "auth.welcomeBack": "மீண்டும்",
     "auth.backHighlight": "நல்வரவு!",
@@ -342,8 +338,7 @@ export const translations = {
     "auth.card2Title": "அதிகாரப்பூர்வ தகவல்கள்",
     "auth.card2Desc": "TNEA மற்றும் அரசு மூலங்களிலிருந்து பெறப்பட்டவை",
     "auth.card3Title": "அனைவருக்குமான அணுகல்",
-    "auth.card3Desc": "குரல் உதவி மற்றும் இருமொழி ஆதரவுடன்",
-    "auth.speechText": "உங்கள் பதிவுசெய்த மின்னஞ்சல் மற்றும் கடவுச்சொல்லை உள்ளிட்டு உள்நுழையவும், அல்லது புதிய கணக்கு தொடங்க பதிவு செய்தல் பிரிவைத் தேர்ந்தெடுக்கவும்.",
+    "auth.card3Desc": "அனைத்து மாணவர்களுக்குமான இருமொழி ஆதரவுடன்",
 
     // Screen 3: Personal & Nativity
     "personal.badge": "படி 2 / 3",
@@ -375,7 +370,6 @@ export const translations = {
     "personal.tip3": "சாதி சான்றிதழின்படி சரியான சமூகப் பிரிவைத் தேர்ந்தெடுக்கவும்.",
     "personal.tip4": "சொந்த ஊர் மற்றும் முகவரி விவரங்களைக் கவனமாக உள்ளிடவும்.",
     "personal.slogan": "ஒவ்வொரு விவரமும் உங்கள் கனவுக்கு அருகில் கொண்டு சேர்க்கிறது!",
-    "personal.speechText": "படி 2: தனிநபர் மற்றும் பூர்வீக விவரங்கள். உங்கள் முழுப் பெயர், பிறந்த தேதி, சமூகப் பிரிவு, கைப்பேசி எண், மாநிலம், மாவட்டம் மற்றும் முகவரியைச் சரியாக உள்ளிடவும்.",
 
     // Screen 4: Academic & Eligibility Details
     "academic.badge": "படி 3 / 3",
@@ -417,6 +411,7 @@ export const translations = {
     "academic.resSports": "சிறந்த விளையாட்டு வீரர்",
     "academic.declarationText": "மேலே கொடுக்கப்பட்டுள்ள விவரங்கள் அனைத்தும் என் அறிவுக்கு எட்டியவரை உண்மையானவை மற்றும் சரியானவை என உறுதியளிக்கிறேன்.",
     "academic.completeProfile": "விவரங்களை நிறைவுசெய்க",
+    "academic.calculateCutoffBtn": "கட்-ஆஃப் கணக்கிட்டு தொடரவும்",
     "academic.completeHelper": "* குறியிடப்பட்ட அனைத்து புலங்களையும் பூர்த்தி செய்து உறுதிமொழியைத் தேர்ந்தெடுத்து தொடரவும்.",
     "academic.sidebarCutoffTitle": "உங்கள் பொறியியல் கட்-ஆஃப்",
     "academic.sidebarAvg": "கணிதம், இயற்பியல், வேதியியல் சராசரி",
@@ -424,12 +419,14 @@ export const translations = {
     "academic.sidebarNotEligibleTitle": "குறைந்தபட்ச மதிப்பெண் தகுதி பூர்த்தியாகவில்லை",
     "academic.sidebarEligibleDesc": "உங்கள் கணிதம், இயற்பியல் மற்றும் வேதியியல் சராசரி {avg}%. {community} பிரிவிற்கான குறைந்தபட்ச தகுதி {minRequired}%.",
     "academic.sidebarDisclaimer": "குறைந்தபட்ச தகுதி பெற்றிருப்பது மட்டுமே கல்லூரி சேர்க்கையை உறுதிப்படுத்தாது. சேர்க்கை உங்கள் கட்-ஆஃப், தரவரிசை, இடஒதுக்கீட்டு விதிகள் மற்றும் இடங்களின் இருப்பைப் பொறுத்தது.",
+    "academic.sidebarMandatedExplanation": "நீங்கள் உள்ளிட்டுள்ள விவரங்கள் பொருந்தக்கூடிய TNEA தகுதி வரம்புகளைப் பூர்த்தி செய்கின்றன. இருப்பினும், தகுதி வரம்புகளைப் பூர்த்தி செய்வது மட்டுமே ஒரு பொறியியல் கல்லூரியில் சேர்க்கை அல்லது இடத்தை உறுதிப்படுத்தாது. சேர்க்கை பொருந்தக்கூடிய சேர்க்கை விதிகள், தகுதி, தரவரிசை, கிடைக்கும் இடங்கள் மற்றும் கலந்தாய்வு முடிவுகளைப் பொறுத்தது.",
+    "academic.pendingTitle": "12-ஆம் வகுப்பு மதிப்பெண்களை உள்ளிடவும்",
+    "academic.pendingDesc": "சரியான மதிப்பெண்களை உள்ளிட்ட பிறகு உங்கள் கட்-ஆஃப் மற்றும் தகுதி விவரங்கள் இங்கே காட்டப்படும்.",
     "academic.howThisWorks": "இது எவ்வாறு கணக்கிடப்படுகிறது",
     "academic.rule1": "கட்-ஆஃப் = கணிதம் + (இயற்பியல் ÷ 2) + (வேதியியல் ÷ 2). அதிகபட்ச மதிப்பெண் 200.",
     "academic.rule2": "குறைந்தபட்ச மதிப்பெண்: OC பிரிவினருக்கு சராசரி குறைந்தபட்சம் 45%, மற்ற சமூகப் பிரிவினருக்கு 40% இருக்க வேண்டும்.",
     "academic.rule3": "சான்றிதழில் உள்ள மதிப்பெண்களை அப்படியே பயன்படுத்தவும். குறைந்தபட்ச தகுதிக்கு முழுமையாக்குதல் (Rounding) செய்யப்படாது.",
     "academic.rule4": "CBSE அல்லது இதர வாரியங்களின் மதிப்பெண்களை TNEA சீரமைக்கக்கூடும், எனவே இதை உத்தேச மதிப்பாகக் கருதவும்.",
-    "academic.speechText": "படி 3: கல்வி விவரங்கள் மற்றும் கட்-ஆஃப் கணக்கீடு. கணிதம், இயற்பியல் மற்றும் வேதியியல் மதிப்பெண்களை உள்ளிடவும். உங்கள் 200-க்கான கட்-ஆஃப் உடனடியாக தானாக கணக்கிடப்படும்.",
 
     // Screen 5: Main Dashboard
     "dash.welcomeBack": "மீண்டும் நல்வரவு!",
@@ -466,7 +463,6 @@ export const translations = {
     "dash.sampleUpdate3Title": "கல்லூரி ஒதுக்கீட்டு முடிவுகள் வெளியீடு",
     "dash.sampleUpdate3Desc": "சமீபத்திய கட்டத்திற்கான தற்காலிக ஒதுக்கீட்டு முடிவுகளைப் பார்க்கவும்.",
     "dash.sampleUpdate3Date": "மாதிரி தேதி 3, 2026",
-    "dash.speechText": "TNEA முகப்பு பலகைக்கு நல்வரவு. உங்கள் பொறியியல் கட்-ஆஃப், சேமித்த கல்லூரிகள், புதிய சேர்க்கை அறிவிப்புகள் மற்றும் சரிபார்ப்பு பட்டியலை இங்கே காணலாம்.",
 
     // Search Colleges Modal / View
     "colleges.title": "TNEA பொறியியல் கல்லூரிகள் தேடல்",
@@ -481,7 +477,7 @@ export const translations = {
     // Choice List Modal / View
     "choice.title": "என் விருப்பக் கல்லூரி பட்டியல்",
     "choice.subtitle": "உங்கள் சேர்க்கை முன்னுரிமைப்படி கல்லூரிகளை வரிசைப்படுத்துங்கள் (1 = முதலிடம்).",
-    "choice.empty": "விருப்பப் பட்டியலில் இன்னும் கல்லூரிகள் சேர்க்கப்படவில்லை. கல்லூரிகளைத் தேர்ந்தெடுக்க 'கல்லூரிகளைத் தேடுக' வசதியைப் பயன்படுத்தவும்.",
+    "choice.empty": "விருப்பப்列表中 இன்னும் கல்லூரிகள் சேர்க்கப்படவில்லை. கல்லூரிகளைத் தேர்ந்தெடுக்க 'கல்லூரிகளைத் தேடுக' வசதியைப் பயன்படுத்தவும்.",
     "choice.itemCount": "மொத்த விருப்பங்கள்: {count}",
 
     // Profile Modal / View
@@ -510,6 +506,10 @@ export const translations = {
     "val.passwordRequired": "உங்கள் கடவுச்சொல்லை உள்ளிடவும்.",
     "val.passwordMin": "கடவுச்சொல் குறைந்தது 6 எழுத்துகள் இருக்க வேண்டும்.",
     "val.passwordMismatch": "கடவுச்சொற்கள் பொருந்தவில்லை.",
+    "val.authInvalid": "தவறான மின்னஞ்சல் அல்லது கடவுச்சொல். மீண்டும் முயற்சிக்கவும்.",
+    "val.accountNotFound": "இந்த மின்னஞ்சல் அல்லது பதிவு எண்ணில் கணக்கு எதுவும் இல்லை. முதலில் பதிவு செய்யவும்.",
+    "val.accountExists": "இந்த மின்னஞ்சல் ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது. உள்நுழையவும்.",
+    "val.termsRequired": "தொடர தேவையான விதிமுறைகளை ஏற்கவும்.",
     "val.dobRequired": "உங்கள் பிறந்த தேதியைத் தேர்ந்தெடுக்கவும்.",
     "val.genderRequired": "பாலினத்தைத் தேர்ந்தெடுக்கவும்.",
     "val.communityRequired": "உங்கள் சமூகப் பிரிவைத் தேர்ந்தெடுக்கவும்.",

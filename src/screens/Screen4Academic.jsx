@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../store.jsx";
 import { Header } from "../components/Header.jsx";
 import { Stepper } from "../components/Stepper.jsx";
@@ -22,6 +22,13 @@ import {
 export function Screen4Academic() {
   const { t, user, updateUserData, setStep } = useApp();
 
+  // Guard: Personal details must be completed first
+  useEffect(() => {
+    if (!user.isPersonalComplete) {
+      setStep(2);
+    }
+  }, [user.isPersonalComplete]);
+
   // Controlled form states
   const [board, setBoard] = useState(user.board || "Tamil Nadu State Board");
   const [passingYear, setPassingYear] = useState(user.passingYear || "2026");
@@ -30,9 +37,9 @@ export function Screen4Academic() {
   const [regNumber, setRegNumber] = useState(user.regNumber || "");
 
   // Marks
-  const [maths, setMaths] = useState(user.maths || "90");
-  const [physics, setPhysics] = useState(user.physics || "85");
-  const [chemistry, setChemistry] = useState(user.chemistry || "95");
+  const [maths, setMaths] = useState(user.maths || "");
+  const [physics, setPhysics] = useState(user.physics || "");
+  const [chemistry, setChemistry] = useState(user.chemistry || "");
   const [maxMaths, setMaxMaths] = useState(user.maxMaths || "100");
   const [maxPhysics, setMaxPhysics] = useState(user.maxPhysics || "100");
   const [maxChemistry, setMaxChemistry] = useState(user.maxChemistry || "100");
@@ -40,13 +47,15 @@ export function Screen4Academic() {
   // Eligibility & quotas
   const [community, setCommunity] = useState(user.community || "BC");
   const [studiedGovtSchool, setStudiedGovtSchool] = useState(user.studiedGovtSchool || "no");
-  const [firstGraduate, setFirstGraduate] = useState(user.firstGraduate || "yes");
+  const [firstGraduate, setFirstGraduate] = useState(user.firstGraduate || "no");
   const [specialReservations, setSpecialReservations] = useState(user.specialReservations || []);
-  const [declared, setDeclared] = useState(user.academicDeclared ?? true);
+  const [declared, setDeclared] = useState(user.academicDeclared ?? false);
 
   const [errors, setErrors] = useState({});
+  // Cutoff and eligibility confirmation only shown after valid submission
+  const [isSubmitted, setIsSubmitted] = useState(Boolean(user.academicSubmitted));
 
-  // Dynamic live calculations
+  // Calculations
   const liveCutoff = calculateTneaCutoff(maths, physics, chemistry, maxMaths, maxPhysics, maxChemistry);
   const liveAvg = calculateAveragePercentage(maths, physics, chemistry, maxMaths, maxPhysics, maxChemistry);
   const liveElig = checkMinimumEligibility(liveAvg, community);
@@ -96,7 +105,9 @@ export function Screen4Academic() {
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length === 0) {
-      // Save all details
+      setIsSubmitted(true);
+
+      // Save all details and calculated state
       updateUserData({
         board,
         passingYear,
@@ -114,6 +125,7 @@ export function Screen4Academic() {
         firstGraduate,
         specialReservations,
         academicDeclared: declared,
+        academicSubmitted: true,
         isProfileComplete: true,
       });
 
@@ -317,6 +329,7 @@ export function Screen4Academic() {
                       max={maxMaths}
                       className={`marks-input ${errors.maths ? "has-error" : ""}`}
                       value={maths}
+                      placeholder="0"
                       onChange={(e) => {
                         setMaths(e.target.value);
                         if (errors.maths) setErrors((p) => ({ ...p, maths: null }));
@@ -345,6 +358,7 @@ export function Screen4Academic() {
                       max={maxPhysics}
                       className={`marks-input ${errors.physics ? "has-error" : ""}`}
                       value={physics}
+                      placeholder="0"
                       onChange={(e) => {
                         setPhysics(e.target.value);
                         if (errors.physics) setErrors((p) => ({ ...p, physics: null }));
@@ -373,6 +387,7 @@ export function Screen4Academic() {
                       max={maxChemistry}
                       className={`marks-input ${errors.chemistry ? "has-error" : ""}`}
                       value={chemistry}
+                      placeholder="0"
                       onChange={(e) => {
                         setChemistry(e.target.value);
                         if (errors.chemistry) setErrors((p) => ({ ...p, chemistry: null }));
@@ -537,7 +552,7 @@ export function Screen4Academic() {
 
               <div className="submit-with-note">
                 <button type="submit" className="btn-primary-blue-pill">
-                  <span>{t("academic.completeProfile")}</span>
+                  <span>{t("academic.calculateCutoffBtn")}</span>
                   <CheckIcon size={16} color="#FFFFFF" />
                 </button>
                 <span className="footer-action-note">{t("academic.completeHelper")}</span>
@@ -547,57 +562,74 @@ export function Screen4Academic() {
         </section>
 
         {/* Right Column: Live Cutoff Sidebar */}
-        <aside className="cutoff-sidebar" aria-label="Live Cutoff Calculation and Rules">
-          {/* 1. Main Cutoff Score Card */}
-          <div className="cutoff-main-card">
-            <div className="cutoff-card-head">
-              <span className="cutoff-card-icon">🖩</span>
-              <span className="cutoff-card-title">{t("academic.sidebarCutoffTitle")}</span>
-            </div>
+        <aside className="cutoff-sidebar" aria-label="Cutoff Calculation and Rules">
+          {isSubmitted && liveCutoff !== null ? (
+            <>
+              {/* 1. Calculated Cutoff Score Card */}
+              <div className="cutoff-main-card">
+                <div className="cutoff-card-head">
+                  <span className="cutoff-card-icon">🖩</span>
+                  <span className="cutoff-card-title">{t("academic.sidebarCutoffTitle")}</span>
+                </div>
 
-            <div className="cutoff-score-display">
-              <span className="score-number">{formatCutoff(liveCutoff)}</span>
-              <span className="score-max">/ 200</span>
-            </div>
+                <div className="cutoff-score-display">
+                  <span className="score-number">{formatCutoff(liveCutoff)}</span>
+                  <span className="score-max">/ 200</span>
+                </div>
 
-            <div className="cutoff-formula-tag">
-              <code>{formulaStr}</code>
-            </div>
+                <div className="cutoff-formula-tag">
+                  <code>{formulaStr}</code>
+                </div>
 
-            <div className="cutoff-average-row">
-              <span className="avg-label">{t("academic.sidebarAvg")}</span>
-              <span className="avg-val">
-                {liveAvg !== null ? `${liveAvg.toFixed(2)}%` : "0.00%"}
-              </span>
-            </div>
-          </div>
+                <div className="cutoff-average-row">
+                  <span className="avg-label">{t("academic.sidebarAvg")}</span>
+                  <span className="avg-val">
+                    {liveAvg !== null ? `${liveAvg.toFixed(2)}%` : "0.00%"}
+                  </span>
+                </div>
+              </div>
 
-          {/* 2. Minimum Eligibility Card */}
-          <div className={`cutoff-status-card ${liveElig.eligible ? "status-success" : "status-warning"}`}>
-            <div className="status-badge-row">
-              <span className="status-badge-icon">
-                <CheckIcon size={16} color="#16a34a" />
-              </span>
-              <h4 className="status-badge-title">
-                {liveElig.eligible
-                  ? t("academic.sidebarEligibleTitle")
-                  : t("academic.sidebarNotEligibleTitle")}
-              </h4>
-            </div>
+              {/* 2. Confirmation Tick first, followed immediately by mandated explanation */}
+              <div className={`cutoff-status-card ${liveElig.eligible ? "status-success" : "status-warning"}`}>
+                <div className="status-badge-row">
+                  <span className="status-badge-icon">
+                    <CheckIcon size={18} color="#16a34a" />
+                  </span>
+                  <h4 className="status-badge-title">
+                    {liveElig.eligible
+                      ? t("academic.sidebarEligibleTitle")
+                      : t("academic.sidebarNotEligibleTitle")}
+                  </h4>
+                </div>
 
-            <p className="status-card-desc">
-              {t("academic.sidebarEligibleDesc", {
-                avg: liveAvg !== null ? liveAvg.toFixed(2) : "0.00",
-                community,
-                minRequired: liveElig.minRequired,
-              })}
-            </p>
+                {/* Mandated Explanation Placed Immediately Below Confirmation */}
+                <p className="status-mandated-explanation">
+                  {t("academic.sidebarMandatedExplanation")}
+                </p>
 
-            <div className="status-disclaimer-box">
-              <span className="info-icon-circle">ℹ</span>
-              <p>{t("academic.sidebarDisclaimer")}</p>
+                <p className="status-card-desc mt-2">
+                  {t("academic.sidebarEligibleDesc", {
+                    avg: liveAvg !== null ? liveAvg.toFixed(2) : "0.00",
+                    community,
+                    minRequired: liveElig.minRequired,
+                  })}
+                </p>
+              </div>
+            </>
+          ) : (
+            /* Pending State Before Valid Academic Submission */
+            <div className="cutoff-pending-card">
+              <div className="pending-icon-wrap">
+                <GraduationCap size={28} color="#0284c7" />
+              </div>
+              <h4 className="pending-title">{t("academic.pendingTitle")}</h4>
+              <p className="pending-desc">{t("academic.pendingDesc")}</p>
+              <div className="pending-score-placeholder">
+                <span className="placeholder-dash">—</span>
+                <span className="placeholder-max">/ 200</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 3. How this works Card */}
           <div className="how-it-works-card">
