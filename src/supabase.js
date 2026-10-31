@@ -1,17 +1,29 @@
 // Supabase Client and Integration Helper for TNEA Companion 2026
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || "").trim();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 export const isSupabaseConfigured = () => {
   return (
     typeof supabaseUrl === "string" &&
     supabaseUrl.startsWith("https://") &&
     supabaseUrl.includes(".supabase.co") &&
+    !supabaseUrl.includes("your-project-ref") &&
     typeof supabaseAnonKey === "string" &&
-    supabaseAnonKey.length > 20
+    supabaseAnonKey.length > 20 &&
+    !supabaseAnonKey.startsWith("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
   );
+};
+
+export const getSupabaseConfigStatus = () => {
+  const isConfigured = isSupabaseConfigured();
+  return {
+    isConfigured,
+    hasUrl: Boolean(supabaseUrl),
+    hasKey: Boolean(supabaseAnonKey),
+    urlSnippet: supabaseUrl ? supabaseUrl.replace(/https?:\/\/([^.]+).*/, "$1") : "none",
+  };
 };
 
 export const supabase = isSupabaseConfigured()
@@ -23,6 +35,36 @@ export const supabase = isSupabaseConfigured()
       },
     })
   : null;
+
+/**
+ * Check URL for OAuth errors (e.g. from Google OAuth callback) and clean URL
+ */
+export function checkUrlForAuthError() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const url = new URL(window.location.href);
+    const searchParams = url.searchParams;
+    const hash = url.hash.startsWith("#") ? url.hash.substring(1) : url.hash;
+    const hashParams = new URLSearchParams(hash);
+
+    const error = searchParams.get("error") || hashParams.get("error");
+    const errorDescription =
+      searchParams.get("error_description") || hashParams.get("error_description");
+
+    if (error || errorDescription) {
+      // Clean query and hash without reloading page
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return {
+        error: error || "oauth_error",
+        description: errorDescription ? decodeURIComponent(errorDescription.replace(/\+/g, " ")) : "Authentication failed",
+      };
+    }
+  } catch (e) {
+    // Ignore URL parsing errors
+  }
+  return null;
+}
 
 /**
  * Fetch complete user profile & academic details from Supabase tables

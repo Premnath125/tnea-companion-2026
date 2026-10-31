@@ -19,7 +19,15 @@ import {
   CheckIcon,
 } from "../icons.jsx";
 import { formatCutoff } from "../cutoff.js";
-import { SAMPLE_COLLEGES } from "../data.js";
+import {
+  TNEA_COLLEGE_CATALOG,
+  BRANCH_PREFERENCES,
+} from "../data.js";
+import {
+  generateChoiceRecommendations,
+  printChoiceListPdf,
+  extractCommunityCode,
+} from "../choiceEngine.js";
 
 export function Screen5Dashboard() {
   const {
@@ -48,13 +56,139 @@ export function Screen5Dashboard() {
     }
   }, [isAuthenticated]);
 
-  // Active view or modal: "dashboard" | "search_colleges" | "cutoff_analysis" | "choice_list" | "queries" | "profile" | "checklist" | "settings"
+  // Active view: "dashboard" | "search_colleges" | "cutoff_analysis" | "choice_list" | "queries" | "profile" | "checklist" | "settings"
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showNotifications, setShowNotifications] = useState(false);
   const [collegeSearchQuery, setCollegeSearchQuery] = useState("");
   const [selectedDistrictFilter, setSelectedDistrictFilter] = useState("all");
 
-  const filteredColleges = SAMPLE_COLLEGES.filter((col) => {
+  // Choice List state
+  const [selectedBranches, setSelectedBranches] = useState(["CSE", "IT", "AIML", "ECE"]);
+  const [isGeneratingChoices, setIsGeneratingChoices] = useState(false);
+  const [customCollegeId, setCustomCollegeId] = useState("");
+
+  const toggleBranch = (branchId) => {
+    setSelectedBranches((prev) =>
+      prev.includes(branchId)
+        ? prev.filter((b) => b !== branchId)
+        : [...prev, branchId]
+    );
+  };
+
+  // Convert choiceList IDs to rich item objects (or use custom choices if stored as objects)
+  const detailedChoices = choiceList.map((item, idx) => {
+    if (typeof item === "object" && item !== null && item.code) {
+      return { ...item, order: idx + 1 };
+    }
+    const found = TNEA_COLLEGE_CATALOG.find((c) => c.id === item);
+    if (found) {
+      const commCode = extractCommunityCode(user.community);
+      const isGovt = user.studiedGovtSchool === "yes";
+      let prevCutoff = found.cutoffs?.[commCode] || found.cutoff2025;
+      if (isGovt && found.cutoffGovt7_5) prevCutoff = found.cutoffGovt7_5;
+
+      const numCutoff = parseFloat(cutoff) || 160;
+      let category = "Moderate";
+      if (prevCutoff > numCutoff) category = "Ambitious";
+      else if (prevCutoff < numCutoff - 3.5) category = "Safer";
+
+      return {
+        id: found.id,
+        code: found.code,
+        name: found.name,
+        branch: found.branch,
+        branchCode: found.branchCode,
+        prevCutoff,
+        category,
+        order: idx + 1,
+      };
+    }
+    return {
+      id: item,
+      code: "0000",
+      name: `Option #${item}`,
+      branch: "Engineering",
+      prevCutoff: "—",
+      category: "Moderate",
+      order: idx + 1,
+    };
+  });
+
+  const handleGenerateChoices = () => {
+    setIsGeneratingChoices(true);
+    setTimeout(() => {
+      const recommended = generateChoiceRecommendations({
+        cutoff,
+        community: user.community || "BC",
+        studiedGovtSchool: user.studiedGovtSchool || "no",
+        selectedBranches,
+      });
+
+      updateChoiceList(recommended);
+      setIsGeneratingChoices(false);
+    }, 300);
+  };
+
+  const handleMoveChoice = (index, direction) => {
+    const next = [...detailedChoices];
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= next.length) return;
+
+    const tmp = next[targetIdx];
+    next[targetIdx] = next[index];
+    next[index] = tmp;
+
+    const reordered = next.map((c, i) => ({ ...c, order: i + 1 }));
+    updateChoiceList(reordered);
+  };
+
+  const handleRemoveChoice = (index) => {
+    const filtered = detailedChoices.filter((_, i) => i !== index);
+    const reordered = filtered.map((c, i) => ({ ...c, order: i + 1 }));
+    updateChoiceList(reordered);
+  };
+
+  const handleAddCustomCollege = () => {
+    if (!customCollegeId) return;
+    const found = TNEA_COLLEGE_CATALOG.find((c) => c.id === Number(customCollegeId));
+    if (!found) return;
+
+    const commCode = extractCommunityCode(user.community);
+    const isGovt = user.studiedGovtSchool === "yes";
+    let prevCutoff = found.cutoffs?.[commCode] || found.cutoff2025;
+    if (isGovt && found.cutoffGovt7_5) prevCutoff = found.cutoffGovt7_5;
+
+    const numCutoff = parseFloat(cutoff) || 160;
+    let category = "Moderate";
+    if (prevCutoff > numCutoff) category = "Ambitious";
+    else if (prevCutoff < numCutoff - 3.5) category = "Safer";
+
+    const newItem = {
+      id: found.id,
+      code: found.code,
+      name: found.name,
+      branch: found.branch,
+      branchCode: found.branchCode,
+      prevCutoff,
+      category,
+      order: detailedChoices.length + 1,
+    };
+
+    updateChoiceList([...detailedChoices, newItem]);
+    setCustomCollegeId("");
+  };
+
+  const handleDownloadPdf = () => {
+    printChoiceListPdf({
+      candidate: user,
+      cutoff,
+      choices: detailedChoices,
+      lang,
+      t,
+    });
+  };
+
+  const filteredColleges = TNEA_COLLEGE_CATALOG.filter((col) => {
     const matchesSearch =
       col.name.toLowerCase().includes(collegeSearchQuery.toLowerCase()) ||
       col.city.toLowerCase().includes(collegeSearchQuery.toLowerCase()) ||
@@ -165,7 +299,7 @@ export function Screen5Dashboard() {
 
       {/* 2. Main View Area */}
       <div className="dash-main-area">
-        {/* Top Header Bar (No audio buttons) */}
+        {/* Top Header Bar */}
         <header className="dash-top-header">
           <div className="dash-header-left">
             <span className="dash-page-crumb">
@@ -347,10 +481,8 @@ export function Screen5Dashboard() {
 
                 {/* Card 4: Admission Checklist */}
                 <div className="summary-overview-card">
-                  <div className="overview-card-head">
-                    <div className="overview-icon-box bg-purple-subtle">
-                      <ClipboardIcon size={22} color="#9333ea" />
-                    </div>
+                  <div className="overview-icon-box bg-purple-subtle">
+                    <ClipboardIcon size={22} color="#9333ea" />
                   </div>
                   <div className="overview-card-body">
                     <h3 className="overview-card-title">{t("dash.cardChecklistTitle")}</h3>
@@ -421,6 +553,214 @@ export function Screen5Dashboard() {
             </>
           )}
 
+          {/* AI-Assisted Choice List Subview (Requirement 4) */}
+          {activeTab === "choice_list" && (
+            <div className="subview-container">
+              <div className="choice-page-header">
+                <div>
+                  <h2 className="choice-header-title">{t("choice.title")}</h2>
+                  <p className="subview-desc">{t("choice.subtitle")}</p>
+                </div>
+                {detailedChoices.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn-download-pdf-pill"
+                    onClick={handleDownloadPdf}
+                  >
+                    <span>📄 {t("choice.downloadPdf")}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Automatic Candidate Profile Retrieval Box */}
+              <div className="choice-candidate-card">
+                <div className="candidate-card-header">
+                  <span className="card-badge-icon">👤</span>
+                  <h4>{t("choice.candidateSummary")}</h4>
+                </div>
+                <div className="candidate-summary-pills">
+                  <div className="summary-pill">
+                    <span className="pill-lbl">{t("choice.storedCutoff")}</span>
+                    <strong className="pill-val cutoff-val">{formatCutoff(cutoff)} / 200</strong>
+                  </div>
+                  <div className="summary-pill">
+                    <span className="pill-lbl">{t("choice.storedCommunity")}</span>
+                    <strong className="pill-val">{user.community || "BC"}</strong>
+                  </div>
+                  <div className="summary-pill">
+                    <span className="pill-lbl">{t("choice.storedGovtQuota")}</span>
+                    <strong className="pill-val">
+                      {user.studiedGovtSchool === "yes" ? t("choice.yesEligible") : t("choice.notApplicable")}
+                    </strong>
+                  </div>
+                  <div className="summary-pill">
+                    <span className="pill-lbl">{t("choice.itemCount", { count: detailedChoices.length })}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Branch Preference Selection */}
+              <div className="branch-selection-card">
+                <h4 className="branch-card-heading">{t("choice.selectBranches")}</h4>
+                <div className="branch-chips-grid">
+                  {BRANCH_PREFERENCES.map((b) => {
+                    const isSelected = selectedBranches.includes(b.id);
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        className={`branch-chip-btn ${isSelected ? "selected" : ""}`}
+                        onClick={() => toggleBranch(b.id)}
+                      >
+                        <span className="chip-check">{isSelected ? "✓" : "+"}</span>
+                        <span>{lang === "ta" ? b.nameTa : b.nameEn}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="generate-cta-row">
+                  <button
+                    type="button"
+                    className="btn-generate-choices"
+                    onClick={handleGenerateChoices}
+                    disabled={isGeneratingChoices}
+                  >
+                    <span>{isGeneratingChoices ? t("choice.generating") : "✨ " + t("choice.generateBtn")}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Indicative Cutoff Alert */}
+              <div className="choice-indicative-alert">
+                <span>ℹ️</span>
+                <p>{t("choice.indicativeDisclaimer")}</p>
+              </div>
+
+              {/* Structured Choice List Table */}
+              {detailedChoices.length === 0 ? (
+                <div className="empty-state-card">
+                  <p>{t("choice.empty")}</p>
+                </div>
+              ) : (
+                <div className="choice-table-wrap">
+                  <table className="choice-structured-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: "80px", textAlign: "center" }}>{t("choice.thOrder")}</th>
+                        <th style={{ width: "95px", textAlign: "center" }}>{t("choice.thCode")}</th>
+                        <th>{t("choice.thCollege")}</th>
+                        <th>{t("choice.thBranch")}</th>
+                        <th style={{ width: "120px", textAlign: "center" }}>{t("choice.thCutoff")}</th>
+                        <th style={{ width: "135px", textAlign: "center" }}>{t("choice.thCategory")}</th>
+                        <th style={{ width: "130px", textAlign: "center" }}>{t("choice.thActions")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailedChoices.map((choice, index) => {
+                        const catKey =
+                          choice.category === "Ambitious"
+                            ? "choice.catAmbitious"
+                            : choice.category === "Safer"
+                            ? "choice.catSafer"
+                            : "choice.catModerate";
+
+                        return (
+                          <tr key={`${choice.id}-${index}`} className="choice-table-row">
+                            <td className="cell-order">
+                              <span className="order-circle">#{index + 1}</span>
+                            </td>
+                            <td className="cell-code">
+                              <span className="college-code-tag">{choice.code}</span>
+                            </td>
+                            <td className="cell-name">
+                              <strong>{choice.name}</strong>
+                              <div className="cell-sub">{choice.city ? `📍 ${choice.city}` : ""}</div>
+                            </td>
+                            <td className="cell-branch">{choice.branch}</td>
+                            <td className="cell-cutoff">
+                              <strong>
+                                {typeof choice.prevCutoff === "number"
+                                  ? choice.prevCutoff.toFixed(2)
+                                  : choice.prevCutoff || "—"}
+                              </strong>
+                            </td>
+                            <td className="cell-category">
+                              <span className={`category-pill pill-${(choice.category || "moderate").toLowerCase()}`}>
+                                {t(catKey)}
+                              </span>
+                            </td>
+                            <td className="cell-actions">
+                              <div className="table-actions-group">
+                                {index > 0 && (
+                                  <button
+                                    type="button"
+                                    className="btn-order-move"
+                                    title={t("choice.moveUp")}
+                                    onClick={() => handleMoveChoice(index, -1)}
+                                  >
+                                    ▲
+                                  </button>
+                                )}
+                                {index < detailedChoices.length - 1 && (
+                                  <button
+                                    type="button"
+                                    className="btn-order-move"
+                                    title={t("choice.moveDown")}
+                                    onClick={() => handleMoveChoice(index, 1)}
+                                  >
+                                    ▼
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="btn-order-delete"
+                                  title={t("choice.remove")}
+                                  onClick={() => handleRemoveChoice(index)}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Add Custom College / Branch Manually */}
+              <div className="add-custom-choice-card">
+                <h4>{t("choice.addCustomTitle")}</h4>
+                <div className="add-custom-row">
+                  <div className="select-field-wrap">
+                    <select
+                      className="form-select"
+                      value={customCollegeId}
+                      onChange={(e) => setCustomCollegeId(e.target.value)}
+                    >
+                      <option value="">-- {t("choice.selectCollege")} --</option>
+                      {TNEA_COLLEGE_CATALOG.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          [{c.code}] {c.name} — {c.branch} (Cutoff: {c.cutoff2025})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary-blue-pill"
+                    onClick={handleAddCustomCollege}
+                    disabled={!customCollegeId}
+                  >
+                    {t("choice.addCustomBtn")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Search Colleges Subview */}
           {activeTab === "search_colleges" && (
             <div className="subview-container">
@@ -443,7 +783,7 @@ export function Screen5Dashboard() {
               <div className="colleges-grid-list">
                 {filteredColleges.map((col) => {
                   const isSaved = savedColleges.includes(col.id);
-                  const isAddedChoice = choiceList.includes(col.id);
+                  const isAddedChoice = detailedChoices.some((c) => c.id === col.id);
                   return (
                     <div key={col.id} className="college-card-item">
                       <div className="college-card-top">
@@ -456,7 +796,7 @@ export function Screen5Dashboard() {
                         <span>🎓 {col.branch}</span>
                       </div>
                       <div className="college-cutoff-row">
-                        <span className="prev-cutoff-tag">2025 Cutoff: <b>{col.cutoff2025}</b></span>
+                        <span className="prev-cutoff-tag">{t("choice.thCutoff")}: <b>{col.cutoff2025}</b></span>
                         <div className="college-actions-btn-group">
                           <button
                             type="button"
@@ -471,9 +811,18 @@ export function Screen5Dashboard() {
                             className={`btn-choice-add ${isAddedChoice ? "added" : ""}`}
                             onClick={() => {
                               if (isAddedChoice) {
-                                updateChoiceList(choiceList.filter((id) => id !== col.id));
+                                updateChoiceList(detailedChoices.filter((c) => c.id !== col.id));
                               } else {
-                                updateChoiceList([...choiceList, col.id]);
+                                updateChoiceList([...detailedChoices, {
+                                  id: col.id,
+                                  code: col.code,
+                                  name: col.name,
+                                  branch: col.branch,
+                                  branchCode: col.branchCode,
+                                  prevCutoff: col.cutoff2025,
+                                  category: "Moderate",
+                                  order: detailedChoices.length + 1,
+                                }]);
                               }
                             }}
                           >
@@ -511,28 +860,28 @@ export function Screen5Dashboard() {
                       className="btn-outline-back"
                       onClick={() => setStep(3)}
                     >
-                      ✏️ Edit Marks in Academic Details
+                      {t("analysis.editMarks")}
                     </button>
                   </div>
                 </div>
 
                 <div className="analysis-breakdown-card">
-                  <h3>Subject Marks Breakdown</h3>
+                  <h3>{t("analysis.breakdownTitle")}</h3>
                   <div className="marks-analysis-row">
                     <div className="subject-box">
-                      <span>Mathematics</span>
+                      <span>{t("academic.subMaths")}</span>
                       <b>{user.maths || "—"} / {user.maxMaths || 100}</b>
-                      <small>Full Weightage (100)</small>
+                      <small>{t("analysis.fullWeightage")}</small>
                     </div>
                     <div className="subject-box">
-                      <span>Physics</span>
+                      <span>{t("academic.subPhysics")}</span>
                       <b>{user.physics || "—"} / {user.maxPhysics || 100}</b>
-                      <small>Half Weightage (50)</small>
+                      <small>{t("analysis.halfWeightage")}</small>
                     </div>
                     <div className="subject-box">
-                      <span>Chemistry</span>
+                      <span>{t("academic.subChemistry")}</span>
                       <b>{user.chemistry || "—"} / {user.maxChemistry || 100}</b>
-                      <small>Half Weightage (50)</small>
+                      <small>{t("analysis.halfWeightage")}</small>
                     </div>
                   </div>
                   <div className={`cutoff-status-card mt-4 ${eligibility.eligible ? "status-success" : "status-warning"}`}>
@@ -545,92 +894,6 @@ export function Screen5Dashboard() {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* My Choice List Subview */}
-          {activeTab === "choice_list" && (
-            <div className="subview-container">
-              <div className="subview-header">
-                <div>
-                  <h2>{t("choice.title")}</h2>
-                  <p className="subview-desc">{t("choice.subtitle")}</p>
-                </div>
-                <div className="choice-count-badge">
-                  {t("choice.itemCount", { count: choiceList.length })}
-                </div>
-              </div>
-
-              {choiceList.length === 0 ? (
-                <div className="empty-state-card">
-                  <p>{t("choice.empty")}</p>
-                  <button
-                    type="button"
-                    className="btn-primary-blue-pill"
-                    onClick={() => setActiveTab("search_colleges")}
-                  >
-                    <span>{t("dash.cardCollegesAction")}</span>
-                    <ArrowRight size={16} />
-                  </button>
-                </div>
-              ) : (
-                <div className="choice-ordered-list">
-                  {choiceList.map((colId, index) => {
-                    const col = SAMPLE_COLLEGES.find((c) => c.id === colId);
-                    if (!col) return null;
-                    return (
-                      <div key={col.id} className="choice-row-item">
-                        <div className="choice-rank-num">#{index + 1}</div>
-                        <div className="choice-col-info">
-                          <h4>{col.name}</h4>
-                          <p>📍 {col.city} | 🎓 {col.branch} | Cutoff: {col.cutoff2025}</p>
-                        </div>
-                        <div className="choice-reorder-actions">
-                          {index > 0 && (
-                            <button
-                              type="button"
-                              className="order-btn"
-                              title="Move up"
-                              onClick={() => {
-                                const next = [...choiceList];
-                                const tmp = next[index - 1];
-                                next[index - 1] = next[index];
-                                next[index] = tmp;
-                                updateChoiceList(next);
-                              }}
-                            >
-                              ▲
-                            </button>
-                          )}
-                          {index < choiceList.length - 1 && (
-                            <button
-                              type="button"
-                              className="order-btn"
-                              title="Move down"
-                              onClick={() => {
-                                const next = [...choiceList];
-                                const tmp = next[index + 1];
-                                next[index + 1] = next[index];
-                                next[index] = tmp;
-                                updateChoiceList(next);
-                              }}
-                            >
-                              ▼
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="btn-remove-choice"
-                            onClick={() => updateChoiceList(choiceList.filter((id) => id !== col.id))}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
 
@@ -671,52 +934,64 @@ export function Screen5Dashboard() {
 
               <div className="profile-details-grid">
                 <div className="profile-detail-card">
-                  <h4>Personal & Nativity Information</h4>
-                  <p><b>Name:</b> {user.fullName || "—"}</p>
-                  <p><b>Email:</b> {user.email || "—"}</p>
-                  <p><b>Mobile:</b> {user.mobile ? `+91 ${user.mobile}` : "—"}</p>
-                  <p><b>DOB:</b> {user.dob || "—"}</p>
-                  <p><b>Gender:</b> {user.gender || "—"}</p>
-                  <p><b>Community:</b> {user.community || "—"}</p>
-                  <p><b>State:</b> {user.state || "—"}</p>
-                  <p><b>District:</b> {user.district || "—"}</p>
-                  <p><b>Native Place:</b> {user.nativePlace || "—"}</p>
-                  <p><b>Address:</b> {user.address || "—"}</p>
+                  <h4>{t("profile.personalSec")}</h4>
+                  <p><b>{t("profile.name")}</b> {user.fullName || "—"}</p>
+                  <p><b>{t("profile.email")}</b> {user.email || "—"}</p>
+                  <p><b>{t("profile.mobile")}</b> {user.mobile ? `+91 ${user.mobile}` : "—"}</p>
+                  <p><b>{t("profile.dob")}</b> {user.dob || "—"}</p>
+                  <p><b>{t("profile.gender")}</b> {user.gender || "—"}</p>
+                  <p><b>{t("profile.community")}</b> {user.community || "—"}</p>
+                  <p><b>{t("profile.state")}</b> {user.state || "—"}</p>
+                  <p><b>{t("profile.district")}</b> {user.district || "—"}</p>
+                  <p><b>{t("profile.nativePlace")}</b> {user.nativePlace || "—"}</p>
+                  <p><b>{t("profile.address")}</b> {user.address || "—"}</p>
                 </div>
 
                 <div className="profile-detail-card">
-                  <h4>Academic Details</h4>
-                  <p><b>Board:</b> {user.board || "—"}</p>
-                  <p><b>Passing Year:</b> {user.passingYear || "—"}</p>
-                  <p><b>School:</b> {user.schoolName || "—"}</p>
-                  <p><b>Mathematics:</b> {user.maths !== "" ? `${user.maths} / ${user.maxMaths}` : "—"}</p>
-                  <p><b>Physics:</b> {user.physics !== "" ? `${user.physics} / ${user.maxPhysics}` : "—"}</p>
-                  <p><b>Chemistry:</b> {user.chemistry !== "" ? `${user.chemistry} / ${user.maxChemistry}` : "—"}</p>
-                  <p><b>Calculated Cutoff:</b> {formatCutoff(cutoff)} / 200</p>
-                  <p><b>Average:</b> {averagePercentage !== null ? `${averagePercentage.toFixed(2)}%` : "N/A"}</p>
-                  <p><b>7.5% Govt School Quota:</b> {user.studiedGovtSchool === "yes" ? "Yes" : "No"}</p>
-                  <p><b>First Graduate:</b> {user.firstGraduate === "yes" ? "Yes" : "No"}</p>
+                  <h4>{t("profile.academicSec")}</h4>
+                  <p><b>{t("profile.board")}</b> {user.board || "—"}</p>
+                  <p><b>{t("profile.passingYear")}</b> {user.passingYear || "—"}</p>
+                  <p><b>{t("profile.school")}</b> {user.schoolName || "—"}</p>
+                  <p><b>{t("profile.maths")}</b> {user.maths !== "" ? `${user.maths} / ${user.maxMaths}` : "—"}</p>
+                  <p><b>{t("profile.physics")}</b> {user.physics !== "" ? `${user.physics} / ${user.maxPhysics}` : "—"}</p>
+                  <p><b>{t("profile.chemistry")}</b> {user.chemistry !== "" ? `${user.chemistry} / ${user.maxChemistry}` : "—"}</p>
+                  <p><b>{t("profile.cutoff")}</b> {formatCutoff(cutoff)} / 200</p>
+                  <p><b>{t("profile.average")}</b> {averagePercentage !== null ? `${averagePercentage.toFixed(2)}%` : "N/A"}</p>
+                  <p><b>{t("profile.govtQuota")}</b> {user.studiedGovtSchool === "yes" ? t("choice.yesEligible") : t("choice.notApplicable")}</p>
+                  <p><b>{t("profile.firstGraduate")}</b> {user.firstGraduate === "yes" ? t("academic.yes") : t("academic.no")}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Queries & Solutions Subview */}
+          {/* Queries & Solutions Subview (100% Bilingual FAQs) */}
           {activeTab === "queries" && (
             <div className="subview-container">
-              <h2>{t("dash.navQueries")}</h2>
+              <h2>{t("queries.title")}</h2>
               <div className="faq-list">
                 <div className="faq-item">
-                  <h4>Q: How is the TNEA engineering cutoff calculated?</h4>
-                  <p>Cutoff is out of 200 marks, computed as: Mathematics + (Physics + Chemistry) / 2.</p>
+                  <h4>Q: {t("queries.q1")}</h4>
+                  <p>{t("queries.a1")}</p>
                 </div>
                 <div className="faq-item">
-                  <h4>Q: What is the 7.5% Government School Quota?</h4>
-                  <p>Students who studied from 6th to 12th standard continuously in Tamil Nadu Government Schools are eligible for a 7.5% preferential horizontal reservation.</p>
+                  <h4>Q: {t("queries.q2")}</h4>
+                  <p>{t("queries.a2")}</p>
                 </div>
                 <div className="faq-item">
-                  <h4>Q: How does online choice filling work?</h4>
-                  <p>Eligible candidates can add, reorder, and lock any number of college branches during their designated counselling round.</p>
+                  <h4>Q: {t("queries.q3")}</h4>
+                  <p>{t("queries.a3")}</p>
+                </div>
+                <div className="faq-item">
+                  <h4>Q: {t("queries.q4")}</h4>
+                  <p>{t("queries.a4")}</p>
+                </div>
+                <div className="faq-item">
+                  <h4>Q: {t("queries.q5")}</h4>
+                  <p>{t("queries.a5")}</p>
+                </div>
+                <div className="faq-item">
+                  <h4>Q: {t("queries.q6")}</h4>
+                  <p>{t("queries.a6")}</p>
                 </div>
               </div>
             </div>
@@ -725,11 +1000,10 @@ export function Screen5Dashboard() {
           {/* Settings Subview */}
           {activeTab === "settings" && (
             <div className="subview-container">
-              <h2>{t("dash.navSettings")}</h2>
+              <h2>{t("settings.title")}</h2>
               <div className="profile-detail-card">
-                <h4>Language & Accessibility Settings</h4>
+                <h4>{t("settings.langLabel")}</h4>
                 <div className="setting-row mt-3">
-                  <span>Selected Interface Language:</span>
                   <div className="lang-pill ml-3">
                     <button
                       type="button"
@@ -740,7 +1014,7 @@ export function Screen5Dashboard() {
                     </button>
                     <button
                       type="button"
-                      className={`lang-opt ${lang === "ta" ? "active" : ""}`}
+                      className={`lang-opt ta-font ${lang === "ta" ? "active" : ""}`}
                       onClick={() => setLang("ta")}
                     >
                       தமிழ் (Tamil)

@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   GoogleLogo,
   ShieldIcon,
-  GraduationCap,
   PeopleIcon,
   CheckIcon,
 } from "../icons.jsx";
@@ -27,6 +26,9 @@ export function Screen2SignIn() {
     authenticateUser,
     resetPassword,
     signInWithGoogle,
+    isSupabaseConfigured,
+    oauthError,
+    clearOauthError,
   } = useApp();
 
   const [tab, setTab] = useState("signin"); // "signin" | "signup"
@@ -49,6 +51,7 @@ export function Screen2SignIn() {
   const [authError, setAuthError] = useState(null);
   const [authSuccessMessage, setAuthSuccessMessage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
 
   // Forgot Password Modal state
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -58,6 +61,14 @@ export function Screen2SignIn() {
 
   // Validation errors
   const [errors, setErrors] = useState({});
+
+  // Display OAuth callback errors if any
+  useEffect(() => {
+    if (oauthError) {
+      setAuthError(oauthError);
+      clearOauthError?.();
+    }
+  }, [oauthError]);
 
   // Cooldown timer effect
   useEffect(() => {
@@ -127,7 +138,13 @@ export function Screen2SignIn() {
       try {
         const res = await authenticateUser(email, password);
         if (!res.success) {
-          setAuthError(createError(res.errorKey || "val.authInvalid"));
+          if (res.errorKey) {
+            setAuthError(createError(res.errorKey));
+          } else if (res.message) {
+            setAuthError(res.message);
+          } else {
+            setAuthError(createError("val.authInvalid"));
+          }
         }
       } catch (err) {
         setAuthError(createError("val.authInvalid"));
@@ -154,7 +171,13 @@ export function Screen2SignIn() {
           setOtpStep(true);
           setResendCooldown(60);
         } else {
-          setAuthError(createError(res.errorKey || "val.authInvalid"));
+          if (res.errorKey) {
+            setAuthError(createError(res.errorKey));
+          } else if (res.message) {
+            setAuthError(res.message);
+          } else {
+            setAuthError(createError("val.authInvalid"));
+          }
         }
       } catch (err) {
         setAuthError(createError("val.authInvalid"));
@@ -187,7 +210,13 @@ export function Screen2SignIn() {
         setConfirmPassword("");
         setErrors({});
       } else {
-        setAuthError(createError(res.errorKey || "val.otpInvalid"));
+        if (res.errorKey) {
+          setAuthError(createError(res.errorKey));
+        } else if (res.message) {
+          setAuthError(res.message);
+        } else {
+          setAuthError(createError("val.otpInvalid"));
+        }
       }
     } catch (err) {
       setAuthError(createError("val.otpInvalid"));
@@ -206,7 +235,13 @@ export function Screen2SignIn() {
       if (res.success) {
         setResendCooldown(60);
       } else {
-        setAuthError(createError("val.authInvalid"));
+        if (res.errorKey) {
+          setAuthError(createError(res.errorKey));
+        } else if (res.message) {
+          setAuthError(res.message);
+        } else {
+          setAuthError(createError("val.authInvalid"));
+        }
       }
     } finally {
       setIsSubmitting(false);
@@ -218,7 +253,16 @@ export function Screen2SignIn() {
     setAuthError(null);
     setIsSubmitting(true);
     try {
-      await signInWithGoogle();
+      const res = await signInWithGoogle();
+      if (res && !res.success) {
+        if (res.errorKey) {
+          setAuthError(createError(res.errorKey));
+        } else if (res.message) {
+          setAuthError(res.message);
+        } else {
+          setAuthError(createError("val.authInvalid"));
+        }
+      }
     } catch (err) {
       setAuthError(createError("val.authInvalid"));
     } finally {
@@ -293,9 +337,41 @@ export function Screen2SignIn() {
           </p>
         </div>
 
+        {/* Backend Configuration Notice if not connected */}
+        {!isSupabaseConfigured && (
+          <div className="backend-notice-box">
+            <div className="backend-notice-head">
+              <ShieldIcon size={18} color="#d97706" />
+              <strong>{t("auth.supabaseNotConfigured")}</strong>
+            </div>
+            <button
+              type="button"
+              className="backend-notice-toggle"
+              onClick={() => setShowSetupGuide(!showSetupGuide)}
+            >
+              {showSetupGuide ? "Hide Setup Instructions ▲" : "View Supabase Configuration Instructions ▼"}
+            </button>
+            {showSetupGuide && (
+              <div className="backend-setup-details">
+                <ol>
+                  <li>Create a free project at <b>app.supabase.com</b>.</li>
+                  <li>Copy your <b>Project URL</b> and <b>anon public key</b> from Project Settings &gt; API.</li>
+                  <li>Create a <code>.env</code> file in your project root with:<br />
+                    <code>VITE_SUPABASE_URL=https://your-project.supabase.co</code><br />
+                    <code>VITE_SUPABASE_ANON_KEY=eyJhbGciOi...</code>
+                  </li>
+                  <li>In Supabase Dashboard &gt; <b>SQL Editor</b>, run the script in <code>supabase/schema.sql</code>.</li>
+                  <li><b>Custom SMTP:</b> In Auth &gt; SMTP Settings, configure custom SMTP (e.g. Gmail / Resend) to remove the 3 emails/hour rate limit so OTPs arrive instantly.</li>
+                  <li><b>Google OAuth:</b> Enable Google in Auth &gt; Providers with your Google Cloud Client ID/Secret. Set redirect URI to <code>https://&lt;your-ref&gt;.supabase.co/auth/v1/callback</code>.</li>
+                </ol>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Central Split Authentication Card */}
         <div className="auth-card-split">
-          {/* Left Hero Pane with High-Resolution Collaborative Laboratory Photo */}
+          {/* Left Hero Pane with Collaborative Laboratory Photo */}
           <div className="auth-split-left">
             <div className="auth-left-text">
               <span className="journey-main">{t("auth.journeyHero")}</span>
@@ -365,14 +441,14 @@ export function Screen2SignIn() {
             {authError && (
               <div className="auth-error-banner" role="alert">
                 <ShieldIcon size={16} color="#dc2626" />
-                <span>{formatError(authError, t)}</span>
+                <span>{typeof authError === "string" ? authError : formatError(authError, t)}</span>
               </div>
             )}
 
             {/* --- TAB 1: SIGN IN FORM --- */}
             {tab === "signin" && (
               <form onSubmit={handleSignInSubmit} noValidate className="auth-inner-form">
-                {/* Email Address (strictly email only) */}
+                {/* Email Address */}
                 <div className="form-group">
                   <label className="form-label" htmlFor="signin-email">
                     {t("auth.emailOnly")} <span className="req">*</span>
@@ -465,7 +541,7 @@ export function Screen2SignIn() {
                   className="btn-primary-blue-wide"
                   disabled={isSubmitting}
                 >
-                  <span>{isSubmitting ? t("common.loading") : t("auth.signInBtn")}</span>
+                  <span>{isSubmitting ? t("auth.signingIn") : t("auth.signInBtn")}</span>
                   <ArrowRight size={18} />
                 </button>
 
@@ -482,7 +558,7 @@ export function Screen2SignIn() {
                   disabled={isSubmitting}
                 >
                   <GoogleLogo size={18} />
-                  <span>{t("auth.continueGoogle")}</span>
+                  <span>{isSubmitting ? t("auth.connectingGoogle") : t("auth.continueGoogle")}</span>
                 </button>
 
                 {/* Footer Switch */}
@@ -533,7 +609,7 @@ export function Screen2SignIn() {
                   )}
                 </div>
 
-                {/* Email Address (strictly email only) */}
+                {/* Email Address */}
                 <div className="form-group">
                   <label className="form-label" htmlFor="signup-email">
                     {t("auth.emailOnly")} <span className="req">*</span>
@@ -653,7 +729,7 @@ export function Screen2SignIn() {
                   disabled={isSubmitting}
                 >
                   <GoogleLogo size={18} />
-                  <span>{t("auth.continueGoogle")}</span>
+                  <span>{isSubmitting ? t("auth.connectingGoogle") : t("auth.continueGoogle")}</span>
                 </button>
 
                 {/* Footer Switch */}
@@ -804,7 +880,7 @@ export function Screen2SignIn() {
                   </div>
                 </div>
 
-                <div className="modal-actions">
+                <div className="modal-actions-row">
                   <button
                     type="button"
                     className="btn-outline-back"
@@ -824,39 +900,6 @@ export function Screen2SignIn() {
             </div>
           </div>
         )}
-
-        {/* Bottom Feature Cards */}
-        <section className="auth-bottom-cards" aria-label="Security & Information badges">
-          <div className="auth-badge-card">
-            <div className="auth-badge-icon bg-blue-subtle">
-              <ShieldIcon size={22} color="#1d4ed8" />
-            </div>
-            <div className="auth-badge-text">
-              <h4 className="auth-badge-title">{t("auth.card1Title")}</h4>
-              <p className="auth-badge-desc">{t("auth.card1Desc")}</p>
-            </div>
-          </div>
-
-          <div className="auth-badge-card">
-            <div className="auth-badge-icon bg-green-subtle">
-              <GraduationCap size={22} color="#16a34a" />
-            </div>
-            <div className="auth-badge-text">
-              <h4 className="auth-badge-title">{t("auth.card2Title")}</h4>
-              <p className="auth-badge-desc">{t("auth.card2Desc")}</p>
-            </div>
-          </div>
-
-          <div className="auth-badge-card">
-            <div className="auth-badge-icon bg-purple-subtle">
-              <PeopleIcon size={22} color="#9333ea" />
-            </div>
-            <div className="auth-badge-text">
-              <h4 className="auth-badge-title">{t("auth.card3Title")}</h4>
-              <p className="auth-badge-desc">{t("auth.card3Desc")}</p>
-            </div>
-          </div>
-        </section>
       </main>
     </div>
   );

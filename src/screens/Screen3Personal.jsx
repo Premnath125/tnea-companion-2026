@@ -14,7 +14,7 @@ import {
   ArrowLeft,
   ArrowRight,
 } from "../icons.jsx";
-import { COMMUNITY, GENDERS, STATES, TN_DISTRICTS } from "../data.js";
+import { COMMUNITY, COMMUNITY_OPTIONS, GENDERS, STATES, TN_DISTRICTS } from "../data.js";
 
 export function Screen3Personal() {
   const { t, user, updateUserData, setStep, lang } = useApp();
@@ -252,9 +252,9 @@ export function Screen3Personal() {
                       <option value="" disabled>
                         {t("personal.selectCommunity")}
                       </option>
-                      {COMMUNITY.map((c) => (
-                        <option key={c} value={c.split(" ")[0]}>
-                          {c}
+                      {COMMUNITY_OPTIONS.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {lang === "ta" ? c.labelTa : c.labelEn}
                         </option>
                       ))}
                     </select>

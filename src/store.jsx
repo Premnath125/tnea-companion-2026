@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getTranslation } from "./i18n.js";
 import { calculateTneaCutoff, calculateAveragePercentage, checkMinimumEligibility } from "./cutoff.js";
-import { SAMPLE_COLLEGES, INITIAL_CHECKLIST } from "./data.js";
-import { hashPassword } from "./auth.js";
+import { INITIAL_CHECKLIST } from "./data.js";
 import {
   supabase,
   isSupabaseConfigured,
+  getSupabaseConfigStatus,
+  checkUrlForAuthError,
   fetchUserDataFromSupabase,
   syncProfileToSupabase,
   syncAcademicToSupabase,
@@ -92,13 +93,19 @@ function setActiveSession(session) {
 }
 
 export function AppProvider({ children }) {
-  // Language initialization
+  // Language initialization with persistent memory
   const [lang, setLangState] = useState(() => {
     try {
       return localStorage.getItem(LANG_STORAGE_KEY) || "en";
     } catch (e) {
       return "en";
     }
+  });
+
+  // Check URL for OAuth errors on initial load
+  const [oauthError, setOauthError] = useState(() => {
+    const err = checkUrlForAuthError();
+    return err ? err.description : null;
   });
 
   // Session state initialization
@@ -122,8 +129,8 @@ export function AppProvider({ children }) {
       return {
         step: initialStep,
         currentUser: user,
-        savedColleges: account.savedColleges || [1, 3],
-        choiceList: account.choiceList || [1, 3],
+        savedColleges: account.savedColleges || [101, 112],
+        choiceList: account.choiceList || [],
         checklist: account.checklist || INITIAL_CHECKLIST,
       };
     }
@@ -197,9 +204,6 @@ export function AppProvider({ children }) {
       };
 
       // Correct returning-user routing:
-      // If personal and academic details completed: Screen 5 (Dashboard) [step 4]
-      // If personal details complete, academic incomplete: Screen 4 (Academic) [step 3]
-      // If personal details incomplete: Screen 3 (Personal) [step 2]
       let nextStep = 2;
       if (isProfileComplete) {
         nextStep = 4;
@@ -218,7 +222,7 @@ export function AppProvider({ children }) {
       setActiveSession({ email: authUser.email });
     };
 
-    // 1. Initial check
+    // 1. Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user && isMounted) {
         hydrateFromSupabase(session.user);
@@ -268,16 +272,14 @@ export function AppProvider({ children }) {
     // Local account sync
     const accounts = getStoredAccounts();
     const key = updatedUser.email.toLowerCase();
-    if (accounts[key]) {
-      accounts[key] = {
-        ...accounts[key],
-        user: { ...accounts[key].user, ...updatedUser },
-        savedColleges: updatedSaved !== undefined ? updatedSaved : accounts[key].savedColleges,
-        choiceList: updatedChoices !== undefined ? updatedChoices : accounts[key].choiceList,
-        checklist: updatedChecklist !== undefined ? updatedChecklist : accounts[key].checklist,
-      };
-      saveAccounts(accounts);
-    }
+    accounts[key] = {
+      ...(accounts[key] || {}),
+      user: { ...(accounts[key]?.user || {}), ...updatedUser },
+      savedColleges: updatedSaved !== undefined ? updatedSaved : accounts[key]?.savedColleges || [],
+      choiceList: updatedChoices !== undefined ? updatedChoices : accounts[key]?.choiceList || [],
+      checklist: updatedChecklist !== undefined ? updatedChecklist : accounts[key]?.checklist || INITIAL_CHECKLIST,
+    };
+    saveAccounts(accounts);
 
     // Cloud Supabase sync
     if (supabase && updatedUser.id) {
@@ -336,236 +338,221 @@ export function AppProvider({ children }) {
     });
   };
 
-  // --- Authentication Methods ---
+  // --- Real Authentication Methods ---
 
   // 1. Send OTP for Sign Up
   const sendSignUpOtp = async (firstName, email, password) => {
     const cleanEmail = email.trim().toLowerCase();
 
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            data: {
-              first_name: firstName.trim(),
-              full_name: firstName.trim(),
-            },
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        errorKey: "auth.supabaseNotConfigured",
+        isBackendMissing: true,
+      };
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: {
+            first_name: firstName.trim(),
+            full_name: firstName.trim(),
           },
-        });
+          emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+        },
+      });
 
-        if (error) {
-          if (error.message.toLowerCase().includes("already registered")) {
-            return { success: false, errorKey: "val.accountExists" };
-          }
-          return { success: false, message: error.message };
+      if (error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes("already registered") || msg.includes("user already exists")) {
+          return { success: false, errorKey: "val.accountExists" };
         }
-
-        return { success: true, user: data?.user };
-      } catch (err) {
-        return { success: false, message: err.message };
+        if (msg.includes("rate limit")) {
+          return { success: false, errorKey: "auth.rateLimitError", message: error.message };
+        }
+        return { success: false, message: error.message };
       }
-    }
 
-    // Local / fallback mode
-    const accounts = getStoredAccounts();
-    if (accounts[cleanEmail]) {
-      return { success: false, errorKey: "val.accountExists" };
+      // Check if user already exists (Supabase enumeration protection)
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return { success: false, errorKey: "val.accountExists" };
+      }
+
+      return { success: true, user: data?.user };
+    } catch (err) {
+      return { success: false, message: err.message };
     }
-    return { success: true };
   };
 
   // 2. Verify OTP for Sign Up
   const verifySignUpOtp = async (firstName, email, password, otpToken) => {
     const cleanEmail = email.trim().toLowerCase();
 
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.auth.verifyOtp({
-          email: cleanEmail,
-          token: otpToken.trim(),
-          type: "signup",
-        });
-
-        if (error) {
-          return { success: false, errorKey: "val.otpInvalid", message: error.message };
-        }
-
-        // Account is verified in Supabase!
-        // Immediately sign out to satisfy requirement: user must sign in with their email and password
-        await supabase.auth.signOut();
-
-        return { success: true };
-      } catch (err) {
-        return { success: false, errorKey: "val.otpInvalid", message: err.message };
-      }
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        errorKey: "auth.supabaseNotConfigured",
+        isBackendMissing: true,
+      };
     }
 
-    // Local / fallback mode
-    const accounts = getStoredAccounts();
-    const passwordHash = await hashPassword(password);
-    const newUser = {
-      ...emptyUserProfile,
-      fullName: firstName.trim(),
-      email: cleanEmail,
-      isAuthenticated: false,
-    };
+    try {
+      let { data, error } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: otpToken.trim(),
+        type: "signup",
+      });
 
-    accounts[cleanEmail] = {
-      id: "usr_" + Date.now(),
-      email: cleanEmail,
-      passwordHash,
-      createdAt: new Date().toISOString(),
-      user: newUser,
-      savedColleges: [],
-      choiceList: [],
-      checklist: INITIAL_CHECKLIST,
-    };
+      // Try fallback to type "email" if signup verification complains
+      if (error && (error.message.includes("type") || error.message.includes("Token"))) {
+        const retry = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: otpToken.trim(),
+          type: "email",
+        });
+        if (!retry.error) {
+          data = retry.data;
+          error = null;
+        }
+      }
 
-    saveAccounts(accounts);
-    return { success: true };
+      if (error) {
+        return { success: false, errorKey: "val.otpInvalid", message: error.message };
+      }
+
+      // Account is verified in Supabase!
+      // Immediately sign out to satisfy requirement: user must sign in using their email and password
+      await supabase.auth.signOut();
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, errorKey: "val.otpInvalid", message: err.message };
+    }
   };
 
   // 3. Resend OTP
   const resendSignUpOtp = async (email) => {
     const cleanEmail = email.trim().toLowerCase();
-    if (supabase) {
-      try {
-        const { error } = await supabase.auth.resend({
-          type: "signup",
-          email: cleanEmail,
-        });
-        if (error) return { success: false, message: error.message };
-        return { success: true };
-      } catch (err) {
-        return { success: false, message: err.message };
-      }
+
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        errorKey: "auth.supabaseNotConfigured",
+        isBackendMissing: true,
+      };
     }
-    return { success: true };
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: cleanEmail,
+      });
+      if (error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes("rate limit")) {
+          return { success: false, errorKey: "auth.rateLimitError", message: error.message };
+        }
+        return { success: false, message: error.message };
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
   };
 
   // 4. Sign In with Password
   const authenticateUser = async (email, password) => {
     const cleanEmail = email.trim().toLowerCase();
 
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password,
-        });
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        errorKey: "auth.supabaseNotConfigured",
+        isBackendMissing: true,
+      };
+    }
 
-        if (error) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes("invalid login credentials") || msg.includes("invalid grant")) {
           return { success: false, errorKey: "val.authInvalid", message: error.message };
         }
-
-        return { success: true, user: data?.user };
-      } catch (err) {
-        return { success: false, errorKey: "val.authInvalid", message: err.message };
+        if (msg.includes("email not confirmed")) {
+          return { success: false, errorKey: "auth.emailNotConfirmed", message: error.message };
+        }
+        return { success: false, errorKey: "val.authInvalid", message: error.message };
       }
+
+      return { success: true, user: data?.user };
+    } catch (err) {
+      return { success: false, errorKey: "val.authInvalid", message: err.message };
     }
-
-    // Local / fallback verification
-    const accounts = getStoredAccounts();
-    const account = accounts[cleanEmail];
-    if (!account) {
-      return { success: false, errorKey: "val.accountNotFound" };
-    }
-
-    const passwordHash = await hashPassword(password);
-    if (account.passwordHash !== passwordHash) {
-      return { success: false, errorKey: "val.authInvalid" };
-    }
-
-    setActiveSession({ email: cleanEmail });
-    const user = { ...emptyUserProfile, ...account.user, isAuthenticated: true };
-
-    let nextStep = 2;
-    if (user.isProfileComplete) {
-      nextStep = 4;
-    } else if (user.isPersonalComplete) {
-      nextStep = 3;
-    }
-
-    setSessionData({
-      step: nextStep,
-      currentUser: user,
-      savedColleges: account.savedColleges || [],
-      choiceList: account.choiceList || [],
-      checklist: account.checklist || INITIAL_CHECKLIST,
-    });
-
-    return { success: true };
   };
 
   // 5. Send Password Reset
   const resetPassword = async (email) => {
     const cleanEmail = email.trim().toLowerCase();
-    if (supabase) {
-      try {
-        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
-        });
-        if (error) return { success: false, errorKey: "val.passwordResetError", message: error.message };
-        return { success: true };
-      } catch (err) {
-        return { success: false, errorKey: "val.passwordResetError", message: err.message };
-      }
+
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        errorKey: "auth.supabaseNotConfigured",
+        isBackendMissing: true,
+      };
     }
-    return { success: true };
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+      });
+      if (error) {
+        return { success: false, errorKey: "val.passwordResetError", message: error.message };
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, errorKey: "val.passwordResetError", message: err.message };
+    }
   };
 
   // 6. Sign In with Google
   const signInWithGoogle = async () => {
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
-          },
-        });
-        if (error) throw error;
-        return { success: true, data };
-      } catch (err) {
-        console.error("Google OAuth error:", err);
-        return { success: false, message: err.message };
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        errorKey: "auth.supabaseNotConfigured",
+        isBackendMissing: true,
+      };
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+        },
+      });
+
+      if (error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes("provider is not enabled") || msg.includes("unsupported provider")) {
+          return { success: false, errorKey: "auth.googleOAuthNotConfigured", message: error.message };
+        }
+        return { success: false, message: error.message };
       }
-    }
 
-    // Fallback demo account
-    const demoEmail = "student.tnea2026@gmail.com";
-    const accounts = getStoredAccounts();
-    let account = accounts[demoEmail];
-    if (!account) {
-      const demoUser = {
-        ...emptyUserProfile,
-        fullName: "Tamil Nadu Student",
-        email: demoEmail,
-        isAuthenticated: true,
-      };
-      accounts[demoEmail] = {
-        id: "usr_google_demo",
-        email: demoEmail,
-        user: demoUser,
-        savedColleges: [1, 3],
-        choiceList: [1, 3],
-        checklist: INITIAL_CHECKLIST,
-      };
-      saveAccounts(accounts);
-      account = accounts[demoEmail];
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, message: err.message };
     }
-
-    setActiveSession({ email: demoEmail });
-    setSessionData({
-      step: 2,
-      currentUser: { ...account.user, isAuthenticated: true },
-      savedColleges: account.savedColleges || [],
-      choiceList: account.choiceList || [],
-      checklist: account.checklist || INITIAL_CHECKLIST,
-    });
-    return { success: true };
   };
 
   // 7. Sign Out
@@ -585,7 +572,7 @@ export function AppProvider({ children }) {
     });
   };
 
-  // Legacy registerUser alias
+  // Legacy alias
   const registerUser = async (fullName, email, password) => {
     return sendSignUpOtp(fullName, email, password);
   };
@@ -593,14 +580,14 @@ export function AppProvider({ children }) {
   // Translation helper
   const t = (key, params) => getTranslation(lang, key, params);
 
-  // Derived cutoff & eligibility values ONLY when academic details are explicitly submitted and valid
+  // Derived cutoff & eligibility values
   const { maths, physics, chemistry, maxMaths, maxPhysics, maxChemistry, community, academicSubmitted } = currentUser;
 
   let cutoff = null;
   let averagePercentage = null;
   let eligibility = { eligible: false, minRequired: 40, average: 0 };
 
-  if (academicSubmitted && maths !== "" && physics !== "" && chemistry !== "") {
+  if (maths !== "" && physics !== "" && chemistry !== "") {
     cutoff = calculateTneaCutoff(maths, physics, chemistry, maxMaths, maxPhysics, maxChemistry);
     averagePercentage = calculateAveragePercentage(maths, physics, chemistry, maxMaths, maxPhysics, maxChemistry);
     eligibility = checkMinimumEligibility(averagePercentage, community);
@@ -635,6 +622,9 @@ export function AppProvider({ children }) {
         averagePercentage,
         eligibility,
         isSupabaseConfigured: isSupabaseConfigured(),
+        supabaseStatus: getSupabaseConfigStatus(),
+        oauthError,
+        clearOauthError: () => setOauthError(null),
       }}
     >
       {children}

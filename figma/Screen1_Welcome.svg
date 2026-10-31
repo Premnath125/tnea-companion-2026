@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap');
+      text { font-family: 'Inter', sans-serif; }
+    </style>
+    <filter id="shadow-sm">
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.05"/>
+    </filter>
+    <filter id="shadow-md">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.07"/>
+    </filter>
+    <filter id="shadow-lg">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-opacity="0.08"/>
+    </filter>
+    <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#eff6ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Page Background -->
+  <rect width="1440" height="900" fill="#f4f8fd"/>
+
+  <!-- ========== HEADER ========== -->
+  <g id="Header">
+    <rect width="1440" height="64" fill="#ffffff" filter="url(#shadow-sm)"/>
+    <!-- Logo Icon -->
+    <circle cx="44" cy="32" r="16" fill="#dbeafe"/>
+    <text x="46" y="37" font-size="16" font-weight="700" fill="#1d4ed8" text-anchor="middle">🎓</text>
+    <!-- Brand Name -->
+    <text x="72" y="28" font-size="15" font-weight="700" fill="#0f172a">TNEA Companion</text>
+    <text x="72" y="44" font-size="11" font-weight="500" fill="#1d4ed8">2026</text>
+    <!-- Language Toggle -->
+    <g id="LanguageToggle" transform="translate(1180, 18)">
+      <rect width="120" height="28" rx="14" fill="#eff6ff" stroke="#dbeafe" stroke-width="1"/>
+      <rect x="2" y="2" width="58" height="24" rx="12" fill="#1d4ed8"/>
+      <text x="31" y="19" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">English</text>
+      <text x="90" y="19" font-size="11" font-weight="500" fill="#64748b" text-anchor="middle">தமிழ்</text>
+    </g>
+    <!-- Sign In Button -->
+    <g id="SignInBtn" transform="translate(1330, 18)">
+      <rect width="80" height="28" rx="14" fill="#1d4ed8"/>
+      <text x="40" y="19" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">Sign In</text>
+    </g>
+  </g>
+
+  <!-- ========== HERO SECTION ========== -->
+  <g id="HeroSection" transform="translate(60, 100)">
+    <!-- Left Column -->
+    <g id="HeroText">
+      <!-- Badge -->
+      <g transform="translate(0, 20)">
+        <rect width="220" height="28" rx="14" fill="#eff6ff" stroke="#dbeafe" stroke-width="1"/>
+        <line x1="12" y1="14" x2="36" y2="14" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round"/>
+        <text x="110" y="19" font-size="11" font-weight="600" fill="#1d4ed8" text-anchor="middle">TNEA Counselling 2026</text>
+        <line x1="184" y1="14" x2="208" y2="14" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round"/>
+      </g>
+
+      <!-- Main Heading -->
+      <text x="0" y="92" font-size="42" font-weight="800" fill="#1e293b">Your Smart Companion for</text>
+      <text x="0" y="142" font-size="42" font-weight="800" fill="#1d4ed8">TNEA Counselling 2026</text>
+
+      <!-- Description -->
+      <text x="0" y="185" font-size="15" fill="#64748b" font-weight="400">Plan your engineering admission journey with personalised cutoff</text>
+      <text x="0" y="205" font-size="15" fill="#64748b" font-weight="400">predictions, college recommendations, and complete counselling support.</text>
+
+      <!-- Pill Badges Row -->
+      <g id="PillBadges" transform="translate(0, 230)">
+        <!-- Green Badge -->
+        <rect width="130" height="30" rx="15" fill="#dcfce7"/>
+        <circle cx="18" cy="15" r="9" fill="#ffffff"/>
+        <text x="17" y="19" font-size="10" fill="#16a34a" text-anchor="middle">✓</text>
+        <text x="75" y="20" font-size="11" font-weight="500" fill="#16a34a" text-anchor="middle">Simple &amp; Easy</text>
+
+        <text x="143" y="20" font-size="14" fill="#94a3b8">•</text>
+
+        <!-- Blue Badge -->
+        <g transform="translate(158, 0)">
+          <rect width="135" height="30" rx="15" fill="#dbeafe"/>
+          <circle cx="18" cy="15" r="9" fill="#ffffff"/>
+          <text x="17" y="19" font-size="10" fill="#1d4ed8" text-anchor="middle">🛡</text>
+          <text x="78" y="20" font-size="11" font-weight="500" fill="#2563eb" text-anchor="middle">Secure &amp; Safe</text>
+        </g>
+
+        <text x="306" y="20" font-size="14" fill="#94a3b8">•</text>
+
+        <!-- Purple Badge -->
+        <g transform="translate(320, 0)">
+          <rect width="120" height="30" rx="15" fill="#f3e8ff"/>
+          <circle cx="18" cy="15" r="9" fill="#ffffff"/>
+          <text x="17" y="19" font-size="10" fill="#7c3aed" text-anchor="middle">👤</text>
+          <text x="70" y="20" font-size="11" font-weight="500" fill="#7c3aed" text-anchor="middle">Student-first</text>
+        </g>
+      </g>
+
+      <!-- CTA Button -->
+      <g id="GetStartedBtn" transform="translate(0, 290)">
+        <rect width="190" height="48" rx="24" fill="#1d4ed8"/>
+        <text x="80" y="30" font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">Get Started</text>
+        <text x="150" y="30" font-size="16" fill="#ffffff">→</text>
+      </g>
+    </g>
+
+    <!-- Right Column - Campus Photo Placeholder -->
+    <g id="HeroImage" transform="translate(680, 0)">
+      <rect width="620" height="380" rx="20" fill="url(#heroGrad)" filter="url(#shadow-lg)"/>
+      <rect x="4" y="4" width="612" height="372" rx="18" fill="#c7d8f0" opacity="0.5"/>
+      <text x="310" y="180" font-size="16" fill="#64748b" text-anchor="middle" font-weight="500">📷 Campus Hero Image</text>
+      <text x="310" y="205" font-size="12" fill="#94a3b8" text-anchor="middle">tnea-campus-hero.jpg</text>
+      <!-- Photo Badge -->
+      <g transform="translate(160, 330)">
+        <rect width="300" height="36" rx="18" fill="#ffffff" filter="url(#shadow-sm)"/>
+        <text x="20" y="24" font-size="14" fill="#1d4ed8">🎓</text>
+        <text x="42" y="23" font-size="12" font-weight="500" fill="#1e293b">Anna University &amp; Affiliated Colleges</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ========== FEATURE CARDS ========== -->
+  <g id="FeatureCards" transform="translate(60, 540)">
+    <!-- Card 1 -->
+    <g id="Card1">
+      <rect width="310" height="130" rx="16" fill="#ffffff" stroke="#e5e7eb" stroke-width="1" filter="url(#shadow-md)"/>
+      <rect x="20" y="24" width="44" height="44" rx="12" fill="#dbeafe"/>
+      <text x="42" y="52" font-size="20" text-anchor="middle">📄</text>
+      <text x="80" y="42" font-size="14" font-weight="600" fill="#1e293b">Smart Cutoff Predictor</text>
+      <text x="80" y="62" font-size="12" fill="#64748b">Calculate TNEA cutoff with</text>
+      <text x="80" y="78" font-size="12" fill="#64748b">precise Math, Physics, Chemistry</text>
+      <text x="80" y="94" font-size="12" fill="#64748b">formula instantly.</text>
+    </g>
+
+    <!-- Card 2 -->
+    <g id="Card2" transform="translate(340, 0)">
+      <rect width="310" height="130" rx="16" fill="#ffffff" stroke="#e5e7eb" stroke-width="1" filter="url(#shadow-md)"/>
+      <rect x="20" y="24" width="44" height="44" rx="12" fill="#dcfce7"/>
+      <text x="42" y="52" font-size="20" text-anchor="middle">🛡️</text>
+      <text x="80" y="42" font-size="14" font-weight="600" fill="#1e293b">Secure Data Storage</text>
+      <text x="80" y="62" font-size="12" fill="#64748b">Your personal and academic</text>
+      <text x="80" y="78" font-size="12" fill="#64748b">data stored safely with</text>
+      <text x="80" y="94" font-size="12" fill="#64748b">Supabase authentication.</text>
+    </g>
+
+    <!-- Card 3 -->
+    <g id="Card3" transform="translate(680, 0)">
+      <rect width="310" height="130" rx="16" fill="#ffffff" stroke="#e5e7eb" stroke-width="1" filter="url(#shadow-md)"/>
+      <rect x="20" y="24" width="44" height="44" rx="12" fill="#f3e8ff"/>
+      <text x="42" y="52" font-size="20" text-anchor="middle">📜</text>
+      <text x="80" y="42" font-size="14" font-weight="600" fill="#1e293b">College Recommendations</text>
+      <text x="80" y="62" font-size="12" fill="#64748b">Get personalized college and</text>
+      <text x="80" y="78" font-size="12" fill="#64748b">branch suggestions based on</text>
+      <text x="80" y="94" font-size="12" fill="#64748b">your cutoff score.</text>
+    </g>
+
+    <!-- Card 4 -->
+    <g id="Card4" transform="translate(1020, 0)">
+      <rect width="310" height="130" rx="16" fill="#ffffff" stroke="#e5e7eb" stroke-width="1" filter="url(#shadow-md)"/>
+      <rect x="20" y="24" width="44" height="44" rx="12" fill="#ccfbf1"/>
+      <text x="42" y="52" font-size="20" text-anchor="middle">🎓</text>
+      <text x="80" y="42" font-size="14" font-weight="600" fill="#1e293b">Bilingual Support</text>
+      <text x="80" y="62" font-size="12" fill="#64748b">Complete English and Tamil</text>
+      <text x="80" y="78" font-size="12" fill="#64748b">language support for all</text>
+      <text x="80" y="94" font-size="12" fill="#64748b">screens and features.</text>
+    </g>
+  </g>
+
+  <!-- Footer subtle line -->
+  <line x1="60" y1="880" x2="1380" y2="880" stroke="#e2e8f0" stroke-width="1"/>
+</svg>

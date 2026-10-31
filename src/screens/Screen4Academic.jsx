@@ -8,9 +8,11 @@ import {
   Chevron,
   ShieldIcon,
   ArrowLeft,
+  ArrowRight,
   CheckIcon,
+  CalculatorIcon,
 } from "../icons.jsx";
-import { BOARDS, PASSING_YEARS, COMMUNITY } from "../data.js";
+import { BOARD_OPTIONS, PASSING_YEARS, COMMUNITY_OPTIONS } from "../data.js";
 import {
   calculateTneaCutoff,
   calculateAveragePercentage,
@@ -20,7 +22,7 @@ import {
 } from "../cutoff.js";
 
 export function Screen4Academic() {
-  const { t, user, updateUserData, setStep } = useApp();
+  const { t, user, updateUserData, setStep, lang } = useApp();
 
   // Guard: Personal details must be completed first
   useEffect(() => {
@@ -51,10 +53,12 @@ export function Screen4Academic() {
   const [specialReservations, setSpecialReservations] = useState(user.specialReservations || []);
 
   const [errors, setErrors] = useState({});
-  // Cutoff and eligibility confirmation only shown after valid submission
-  const [isSubmitted, setIsSubmitted] = useState(Boolean(user.academicSubmitted));
+  // Track whether cutoff has been calculated by user or restored from user profile
+  const [isCutoffCalculated, setIsCutoffCalculated] = useState(
+    Boolean(user.academicSubmitted && user.maths !== "" && user.physics !== "" && user.chemistry !== "")
+  );
 
-  // Calculations
+  // Calculations using pure cutoff engine
   const liveCutoff = calculateTneaCutoff(maths, physics, chemistry, maxMaths, maxPhysics, maxChemistry);
   const liveAvg = calculateAveragePercentage(maths, physics, chemistry, maxMaths, maxPhysics, maxChemistry);
   const liveElig = checkMinimumEligibility(liveAvg, community);
@@ -78,7 +82,7 @@ export function Screen4Academic() {
     return null;
   };
 
-  const validate = () => {
+  const validateAll = () => {
     const errs = {};
     if (!board) errs.board = createError("val.boardRequired");
     if (!passingYear) errs.passingYear = createError("val.passingYearRequired");
@@ -96,15 +100,60 @@ export function Screen4Academic() {
     return errs;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const validationErrors = validate();
+  /**
+   * Action 1: Calculate Cutoff Button
+   * - Calculates the cutoff using existing calculation logic
+   * - Displays calculated cutoff in top-left area of this screen
+   * - Does NOT navigate to another page
+   * - Preserves calculation results
+   */
+  const handleCalculateCutoff = (e) => {
+    if (e) e.preventDefault();
+
+    const mErr = validateSubjectMark(maths, maxMaths, "maths");
+    const pErr = validateSubjectMark(physics, maxPhysics, "physics");
+    const cErr = validateSubjectMark(chemistry, maxChemistry, "chemistry");
+
+    const markErrors = {};
+    if (mErr) markErrors.maths = mErr;
+    if (pErr) markErrors.physics = pErr;
+    if (cErr) markErrors.chemistry = cErr;
+
+    setErrors((prev) => ({ ...prev, ...markErrors }));
+
+    if (Object.keys(markErrors).length === 0) {
+      setIsCutoffCalculated(true);
+      // Save marks and updated state to store without advancing step
+      updateUserData({
+        maths,
+        physics,
+        chemistry,
+        maxMaths,
+        maxPhysics,
+        maxChemistry,
+        community,
+        studiedGovtSchool,
+        firstGraduate,
+        specialReservations,
+        academicSubmitted: true,
+      });
+    }
+  };
+
+  /**
+   * Action 2: Continue Button
+   * - Validates form fields
+   * - Navigates to Screen 5 (Dashboard)
+   * - Does NOT recalculate cutoff
+   */
+  const handleContinue = (e) => {
+    if (e) e.preventDefault();
+
+    const validationErrors = validateAll();
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length === 0) {
-      setIsSubmitted(true);
-
-      // Save all details and calculated state
+      // Save full academic profile
       updateUserData({
         board,
         passingYear,
@@ -162,6 +211,7 @@ export function Screen4Academic() {
 
         {/* Center Column: Academic Form Card */}
         <section className="flow-form-card" aria-labelledby="academic-heading">
+          {/* Top Header */}
           <div className="form-card-header">
             <div className="form-card-badge-icon bg-blue-subtle">
               <GraduationCap size={24} color="#1d4ed8" />
@@ -175,7 +225,29 @@ export function Screen4Academic() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} noValidate className="form-sections-wrap">
+          {/* TOP-LEFT CALCULATED CUTOFF DISPLAY (when calculated) */}
+          {isCutoffCalculated && liveCutoff !== null && (
+            <div className="screen4-top-cutoff-banner" role="region" aria-label="Calculated Cutoff Banner">
+              <div className="top-cutoff-left">
+                <div className="top-cutoff-badge">
+                  <CalculatorIcon size={16} color="#1d4ed8" />
+                  <span>{t("academic.topCutoffTitle")}</span>
+                </div>
+                <div className="top-cutoff-score-row">
+                  <span className="top-cutoff-number">{formatCutoff(liveCutoff)}</span>
+                  <span className="top-cutoff-max">/ 200</span>
+                  <span className={`top-cutoff-elig-pill ${liveElig.eligible ? "pill-pass" : "pill-warn"}`}>
+                    {liveElig.eligible ? "✓ " + t("academic.sidebarEligibleTitle") : "⚠️ " + t("academic.sidebarNotEligibleTitle")}
+                  </span>
+                </div>
+                <div className="top-cutoff-formula">
+                  <code>{formulaStr}</code>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="form-sections-wrap">
             {/* 1. Academic Details */}
             <div className="form-section-block">
               <div className="section-title-row">
@@ -202,9 +274,9 @@ export function Screen4Academic() {
                       <option value="" disabled>
                         {t("academic.selectBoard")}
                       </option>
-                      {BOARDS.map((b) => (
-                        <option key={b} value={b}>
-                          {b}
+                      {BOARD_OPTIONS.map((b) => (
+                        <option key={b.value} value={b.value}>
+                          {lang === "ta" ? b.labelTa : b.labelEn}
                         </option>
                       ))}
                     </select>
@@ -421,9 +493,9 @@ export function Screen4Academic() {
                     value={community}
                     onChange={(e) => setCommunity(e.target.value)}
                   >
-                    {COMMUNITY.map((c) => (
-                      <option key={c} value={c.split(" ")[0]}>
-                        {c}
+                    {COMMUNITY_OPTIONS.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {lang === "ta" ? c.labelTa : c.labelEn}
                       </option>
                     ))}
                   </select>
@@ -516,7 +588,7 @@ export function Screen4Academic() {
               </div>
             </div>
 
-            {/* Form Footer Actions */}
+            {/* SEPARATED FOOTER ACTIONS: Independent Calculate Cutoff & Continue Buttons */}
             <div className="form-nav-actions">
               <button
                 type="button"
@@ -527,20 +599,37 @@ export function Screen4Academic() {
                 <span>{t("common.back")}</span>
               </button>
 
-              <div className="submit-with-note">
-                <button type="submit" className="btn-primary-blue-pill">
-                  <span>{t("academic.calculateCutoffBtn")}</span>
-                  <CheckIcon size={16} color="#FFFFFF" />
+              <div className="academic-actions-separated">
+                {/* 1. Independent Calculate Cutoff Button */}
+                <button
+                  type="button"
+                  className="btn-calc-cutoff-independent"
+                  onClick={handleCalculateCutoff}
+                >
+                  <CalculatorIcon size={16} color="#1d4ed8" />
+                  <span>{t("academic.calculateCutoffOnlyBtn")}</span>
                 </button>
-                <span className="footer-action-note">{t("academic.completeHelper")}</span>
+
+                {/* 2. Independent Continue Button */}
+                <button
+                  type="button"
+                  className="btn-primary-blue-pill"
+                  onClick={handleContinue}
+                >
+                  <span>{t("academic.continueBtn")}</span>
+                  <ArrowRight size={16} />
+                </button>
               </div>
             </div>
-          </form>
+            <p className="academic-separated-helper-note">
+              {t("academic.completeHelper")}
+            </p>
+          </div>
         </section>
 
         {/* Right Column: Live Cutoff Sidebar */}
         <aside className="cutoff-sidebar" aria-label="Cutoff Calculation and Rules">
-          {isSubmitted && liveCutoff !== null ? (
+          {isCutoffCalculated && liveCutoff !== null ? (
             <>
               {/* 1. Calculated Cutoff Score Card */}
               <div className="cutoff-main-card">
